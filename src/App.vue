@@ -2,57 +2,62 @@
   <n-config-provider :theme="darkTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
       <div class="app-layout">
-        <!-- 左侧会话侧边栏 -->
-        <div class="sidebar-wrap">
-          <SessionSidebar />
-        </div>
-
-        <!-- 右侧终端区域 -->
-        <div class="main-area">
-          <!-- 无连接时的欢迎页 -->
-          <div v-if="terminalsStore.tabs.length === 0" class="welcome">
-            <div class="welcome-icon">⌨</div>
-            <div class="welcome-title">w-ssh</div>
-            <div class="welcome-hint">双击左侧会话以建立连接</div>
+        <!-- 顶部统一 Tab 栏 -->
+        <div class="top-tab-bar">
+          <!-- Vaults 固定 Tab -->
+          <div
+            class="tab-item"
+            :class="{ active: activeTopTab === 'vaults' }"
+            @click="activeTopTab = 'vaults'"
+          >
+            <n-icon :component="GridOutline" class="tab-icon" />
+            <span class="tab-name">Vaults</span>
           </div>
 
-          <!-- 多标签终端 -->
-          <template v-else>
-            <!-- 标签栏 -->
-            <div class="tab-bar">
-              <div
-                v-for="tab in terminalsStore.tabs"
-                :key="tab.id"
-                class="tab-item"
-                :class="{ active: tab.id === terminalsStore.activeTabId, disconnected: !tab.connected }"
-                @click="terminalsStore.activeTabId = tab.id"
-              >
-                <n-icon :component="tab.connected ? TerminalOutline : AlertCircleOutline" class="tab-icon" />
-                <span class="tab-name">{{ tab.session_name }}</span>
-                <n-button
-                  quaternary
-                  circle
-                  size="tiny"
-                  class="tab-close"
-                  @click.stop="terminalsStore.closeTab(tab.id)"
-                >
-                  <template #icon><n-icon :component="CloseOutline" /></template>
-                </n-button>
-              </div>
-            </div>
+          <!-- 终端动态 Tab -->
+          <div
+            v-for="tab in terminalsStore.tabs"
+            :key="tab.id"
+            class="tab-item"
+            :class="{ active: activeTopTab === tab.id, disconnected: !tab.connected }"
+            @click="activeTopTab = tab.id"
+          >
+            <n-icon
+              :component="tab.connected ? TerminalOutline : AlertCircleOutline"
+              class="tab-icon"
+            />
+            <span class="tab-name">{{ tab.session_name }}</span>
+            <n-button
+              quaternary
+              circle
+              size="tiny"
+              class="tab-close"
+              @click.stop="handleCloseTab(tab.id)"
+            >
+              <template #icon><n-icon :component="CloseOutline" /></template>
+            </n-button>
+          </div>
 
-            <!-- 终端内容区 -->
-            <div class="terminal-area">
-              <TerminalPanel
-                v-for="tab in terminalsStore.tabs"
-                :key="tab.id"
-                :terminal-id="tab.id"
-                :active="tab.id === terminalsStore.activeTabId"
-                :style="{ display: tab.id === terminalsStore.activeTabId ? 'block' : 'none' }"
-                @closed="terminalsStore.markDisconnected(tab.id)"
-              />
-            </div>
-          </template>
+          <!-- 弹性空白：将 + 按钮推到右端 -->
+          <div class="tab-spacer" />
+
+          <!-- 新建按钮 -->
+          <div class="tab-new-btn" @click="activeTopTab = 'vaults'">
+            <n-icon :component="AddOutline" />
+          </div>
+        </div>
+
+        <!-- 内容区 -->
+        <div class="content-area">
+          <VaultsView v-show="activeTopTab === 'vaults'" />
+          <TerminalPanel
+            v-for="tab in terminalsStore.tabs"
+            :key="tab.id"
+            :terminal-id="tab.id"
+            :active="tab.id === activeTopTab"
+            v-show="activeTopTab === tab.id"
+            @closed="terminalsStore.markDisconnected(tab.id)"
+          />
         </div>
       </div>
     </n-message-provider>
@@ -60,14 +65,37 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { NConfigProvider, NMessageProvider, NButton, NIcon, darkTheme } from 'naive-ui'
 import type { GlobalThemeOverrides } from 'naive-ui'
-import { TerminalOutline, AlertCircleOutline, CloseOutline } from '@vicons/ionicons5'
-import SessionSidebar from './components/SessionSidebar.vue'
+import {
+  GridOutline,
+  TerminalOutline,
+  AlertCircleOutline,
+  CloseOutline,
+  AddOutline,
+} from '@vicons/ionicons5'
+import VaultsView from './components/VaultsView.vue'
 import TerminalPanel from './components/TerminalPanel.vue'
 import { useTerminalsStore } from './stores/terminals'
 
 const terminalsStore = useTerminalsStore()
+const activeTopTab = ref<string>('vaults')
+
+// 同步：终端 store 打开新终端时，自动切换到该 Tab
+watch(
+  () => terminalsStore.activeTabId,
+  (newId) => {
+    activeTopTab.value = newId ?? 'vaults'
+  },
+)
+
+async function handleCloseTab(terminalId: string) {
+  await terminalsStore.closeTab(terminalId)
+  if (terminalsStore.tabs.length === 0) {
+    activeTopTab.value = 'vaults'
+  }
+}
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
@@ -104,62 +132,23 @@ html, body, #app {
 <style scoped>
 .app-layout {
   display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100vh;
 }
 
-.sidebar-wrap {
-  width: 220px;
+/* 顶部 Tab 栏 */
+.top-tab-bar {
+  display: flex;
+  align-items: center;
+  height: 38px;
   flex-shrink: 0;
-  border-right: 1px solid #313244;
-  overflow: hidden;
-}
-
-.main-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: #1e1e2e;
-}
-
-.welcome {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #6c7086;
-  gap: 12px;
-}
-
-.welcome-icon {
-  font-size: 48px;
-  opacity: 0.3;
-}
-
-.welcome-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #45475a;
-}
-
-.welcome-hint {
-  font-size: 14px;
-}
-
-/* 标签栏 */
-.tab-bar {
-  display: flex;
-  align-items: center;
   background: #181825;
   border-bottom: 1px solid #313244;
   overflow-x: auto;
-  flex-shrink: 0;
-  height: 36px;
 }
 
-.tab-bar::-webkit-scrollbar {
+.top-tab-bar::-webkit-scrollbar {
   height: 2px;
 }
 
@@ -175,7 +164,6 @@ html, body, #app {
   border-right: 1px solid #313244;
   font-size: 13px;
   transition: background 0.15s, color 0.15s;
-  min-width: 0;
 }
 
 .tab-item:hover {
@@ -194,7 +182,7 @@ html, body, #app {
 }
 
 .tab-name {
-  max-width: 100px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -208,14 +196,37 @@ html, body, #app {
   opacity: 1;
 }
 
-/* 终端区 */
-.terminal-area {
+.tab-spacer {
   flex: 1;
+}
+
+.tab-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 100%;
+  cursor: pointer;
+  color: #6c7086;
+  font-size: 18px;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.tab-new-btn:hover {
+  color: #cdd6f4;
+  background: #313244;
+}
+
+/* 内容区 */
+.content-area {
+  flex: 1;
+  position: relative;
   overflow: hidden;
 }
 
-.terminal-area > * {
-  width: 100%;
-  height: 100%;
+.content-area > * {
+  position: absolute;
+  inset: 0;
 }
 </style>
