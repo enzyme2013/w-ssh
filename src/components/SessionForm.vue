@@ -81,6 +81,7 @@ import type { Session } from '../types'
 const props = defineProps<{
   modelValue: boolean
   session?: Session
+  defaultGroup?: string
 }>()
 
 const emit = defineEmits<{
@@ -129,7 +130,7 @@ const defaultForm = () => ({
   username: 'root',
   password: '',
   private_key: '',
-  group_name: '',
+  group_name: props.defaultGroup || '',
 })
 
 const form = ref(defaultForm())
