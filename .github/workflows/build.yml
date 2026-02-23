@@ -1,10 +1,10 @@
 name: Build Release
 
-# 仅在 release 分支的 push 事件触发
+# 推送 v* tag 时触发（如 git tag v0.2.0 && git push --tags）
 on:
   push:
-    branches:
-      - release
+    tags:
+      - 'v*'
 
 jobs:
   build-tauri:
@@ -68,6 +68,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'w-ssh ${{ github.ref_name }}'
+          releaseDraft: false
+          prerelease: false
           args: ${{ matrix.args }}
 
       # 上传构建产物
