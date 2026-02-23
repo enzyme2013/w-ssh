@@ -2,7 +2,7 @@
 
 A lightweight, cross-platform SSH session manager built with Tauri 2 and Vue 3.
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
@@ -13,6 +13,22 @@ A lightweight, cross-platform SSH session manager built with Tauri 2 and Vue 3.
 - 🔑 **Multiple auth methods** — Password and private key authentication
 - ⚡ **Multiple connections** — Manage concurrent SSH sessions
 - 💾 **Local storage** — Sessions stored locally via SQLite, no cloud required
+- 🎨 **Modern dark theme** — Termius-style deep black UI with cold blue accent
+
+## Changelog
+
+### v0.2.0
+
+- **UI overhaul**: Redesigned to Termius-style dark theme (`#0d1117` base, `#6b9cf8` accent)
+- **HostCard glow**: Three-layer blue box-shadow on hover, circular icon bubble
+- **Nav active bar**: Left inset accent bar replaces flat highlight
+- **Tab bar**: Removed vertical dividers, active tab uses bottom blue underline
+- **SessionForm**: Pre-fills group name when creating a host from a group view
+- **CI**: Release builds now trigger on `v*` tag push and auto-publish to GitHub Releases
+
+### v0.1.0
+
+- Initial release — tab bar layout, host card grid, SSH connect/disconnect
 
 ## Tech Stack
 
