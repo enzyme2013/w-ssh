@@ -5,7 +5,9 @@
     @contextmenu.prevent="showContextMenu"
   >
     <div class="card-icon">
-      <n-icon :component="DesktopOutline" :size="28" color="#89b4fa" />
+      <div class="icon-bubble">
+        <n-icon :component="DesktopOutline" :size="22" color="#6b9cf8" />
+      </div>
     </div>
     <div class="card-info">
       <div class="card-name">{{ session.name }}</div>
@@ -85,26 +87,48 @@ function handleSelect(key: string) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 16px 12px;
-  background: #313244;
-  border: 1px solid #45475a;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 20px 14px 16px;
+  background: #161b27;
+  border: 1px solid #21283a;
+  border-radius: 10px;
   cursor: pointer;
   user-select: none;
-  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: background 0.15s, border-color 0.2s, transform 0.15s, box-shadow 0.2s;
 }
 
 .host-card:hover {
-  background: #3c3d52;
-  border-color: #89b4fa;
-  transform: translateY(-1px);
+  background: #1c2333;
+  border-color: rgba(107, 156, 248, 0.5);
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(107, 156, 248, 0.2),
+    0 0 20px rgba(107, 156, 248, 0.08);
 }
 
 .card-icon {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.icon-bubble {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(107, 156, 248, 0.12);
+  border: 1px solid rgba(107, 156, 248, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.host-card:hover .icon-bubble {
+  background: rgba(107, 156, 248, 0.20);
+  border-color: rgba(107, 156, 248, 0.35);
 }
 
 .card-info {
@@ -114,20 +138,21 @@ function handleSelect(key: string) {
 }
 
 .card-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: #e2e8f0;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .card-host {
-  font-size: 12px;
-  color: #6c7086;
+  font-size: 11px;
+  color: #4a5568;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 </style>

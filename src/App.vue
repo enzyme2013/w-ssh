@@ -99,17 +99,17 @@ async function handleCloseTab(terminalId: string) {
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#89b4fa',
-    primaryColorHover: '#b4befe',
-    primaryColorPressed: '#74c7ec',
-    bodyColor: '#1e1e2e',
-    cardColor: '#313244',
-    modalColor: '#313244',
-    popoverColor: '#313244',
-    borderColor: '#45475a',
-    textColor1: '#cdd6f4',
-    textColor2: '#bac2de',
-    textColor3: '#a6adc8',
+    primaryColor: '#6b9cf8',
+    primaryColorHover: '#93b4fb',
+    primaryColorPressed: '#4a7cf0',
+    bodyColor: '#0d1117',
+    cardColor: '#161b27',
+    modalColor: '#161b27',
+    popoverColor: '#161b27',
+    borderColor: '#21283a',
+    textColor1: '#e2e8f0',
+    textColor2: '#c9d5e0',
+    textColor3: '#8899aa',
   },
 }
 </script>
@@ -125,7 +125,7 @@ html, body, #app {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #1e1e2e;
+  background: #0d1117;
 }
 </style>
 
@@ -141,10 +141,10 @@ html, body, #app {
 .top-tab-bar {
   display: flex;
   align-items: center;
-  height: 38px;
+  height: 40px;
   flex-shrink: 0;
-  background: #181825;
-  border-bottom: 1px solid #313244;
+  background: #090c11;
+  border-bottom: 1px solid #21283a;
   overflow-x: auto;
 }
 
@@ -156,29 +156,28 @@ html, body, #app {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px;
+  padding: 0 14px;
   height: 100%;
   cursor: pointer;
   white-space: nowrap;
-  color: #6c7086;
-  border-right: 1px solid #313244;
-  font-size: 13px;
+  color: #4a5568;
+  font-size: 12px;
   transition: background 0.15s, color 0.15s;
 }
 
 .tab-item:hover {
-  background: #313244;
-  color: #cdd6f4;
+  background: rgba(255, 255, 255, 0.04);
+  color: #c9d5e0;
 }
 
 .tab-item.active {
-  background: #1e1e2e;
-  color: #cdd6f4;
-  border-bottom: 2px solid #89b4fa;
+  background: #0d1117;
+  color: #e2e8f0;
+  border-bottom: 2px solid #6b9cf8;
 }
 
 .tab-item.disconnected .tab-icon {
-  color: #f38ba8;
+  color: #f87171;
 }
 
 .tab-name {
@@ -207,15 +206,15 @@ html, body, #app {
   width: 36px;
   height: 100%;
   cursor: pointer;
-  color: #6c7086;
+  color: #4a5568;
   font-size: 18px;
   flex-shrink: 0;
   transition: color 0.15s, background 0.15s;
 }
 
 .tab-new-btn:hover {
-  color: #cdd6f4;
-  background: #313244;
+  color: #c9d5e0;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* 内容区 */

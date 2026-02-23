@@ -102,6 +102,7 @@
     <SessionForm
       v-model="showForm"
       :session="editingSession"
+      :default-group="activeNav !== 'all' ? activeNav : undefined"
       @saved="onSaved"
     />
 
@@ -233,65 +234,67 @@ onMounted(() => sessionsStore.fetchSessions())
   display: flex;
   width: 100%;
   height: 100%;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: #0d1117;
+  color: #e2e8f0;
   overflow: hidden;
 }
 
 /* 左侧导航 */
 .nav-panel {
-  width: 160px;
+  width: 168px;
   flex-shrink: 0;
-  background: #181825;
-  border-right: 1px solid #313244;
+  background: #090c11;
+  border-right: 1px solid #21283a;
   display: flex;
   flex-direction: column;
-  padding: 8px 0;
+  padding: 12px 0;
   overflow-y: auto;
   user-select: none;
 }
 
 .nav-section-title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  color: #6c7086;
+  color: #374151;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   padding: 4px 12px 8px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
+  gap: 9px;
+  padding: 8px 10px 8px 12px;
   cursor: pointer;
   font-size: 13px;
-  color: #a6adc8;
-  border-radius: 4px;
-  margin: 0 4px;
-  transition: background 0.15s, color 0.15s;
+  color: #8899aa;
+  border-radius: 6px;
+  margin: 1px 6px;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s, padding-left 0.15s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .nav-item:hover {
-  background: #313244;
-  color: #cdd6f4;
+  background: rgba(255, 255, 255, 0.04);
+  color: #c9d5e0;
 }
 
 .nav-item.active {
-  background: #313244;
-  color: #89b4fa;
+  background: rgba(107, 156, 248, 0.10);
+  color: #6b9cf8;
+  box-shadow: inset 3px 0 0 0 #6b9cf8;
+  padding-left: 15px;
 }
 
 .nav-item.placeholder {
-  color: #585b70;
+  color: #374151;
 }
 
 .nav-item.placeholder:hover {
-  color: #6c7086;
+  color: #4a5568;
 }
 
 .nav-icon {
@@ -301,8 +304,8 @@ onMounted(() => sessionsStore.fetchSessions())
 
 .nav-divider {
   height: 1px;
-  background: #313244;
-  margin: 8px 12px;
+  background: #21283a;
+  margin: 10px 14px;
 }
 
 /* 右侧内容 */
@@ -318,8 +321,9 @@ onMounted(() => sessionsStore.fetchSessions())
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid #313244;
+  padding: 14px 20px;
+  border-bottom: 1px solid #21283a;
+  background: #0d1117;
   flex-shrink: 0;
 }
 
@@ -330,16 +334,17 @@ onMounted(() => sessionsStore.fetchSessions())
 .cards-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 20px;
+  background: #0d1117;
 }
 
 .group-title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  color: #6c7086;
+  color: #374151;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
   margin-top: 4px;
 }
 
@@ -349,13 +354,13 @@ onMounted(() => sessionsStore.fetchSessions())
 
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 14px;
 }
 
 .empty-hint {
   text-align: center;
-  color: #6c7086;
+  color: #4a5568;
   font-size: 13px;
   padding: 48px 16px;
 }
