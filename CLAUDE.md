@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-w-ssh 是一个跨平台 SSH 会话管理器，基于 **Tauri 2**（Rust 后端 + WebView 前端）构建。前端使用 Vue 3 + TypeScript + Naive UI，终端模拟使用 xterm.js，SSH 协议实现使用 russh，会话数据存储在本地 SQLite。
+w-ssh 是一个跨平台 SSH 会话管理器，基于 **Tauri 2**（Rust 后端 + WebView 前端）构建。前端使用 Vue 3 + TypeScript + Naive UI，终端模拟使用 xterm.js，SSH 协议实现使用 russh。会话默认保存在本地 SQLite，也可显式选择严格 YAML 后端。
 
 ## 开发命令
 
@@ -43,8 +43,8 @@ cd src-tauri && cargo test
 
 ```
 前端 terminalsStore.openTerminal()
-  → invoke('ssh_connect', { sessionId, cols, rows })
-    → Rust: 从 DB 读 session → 建立 russh 连接 → 生成 terminal_id (UUID)
+  → invoke('ssh_connect', { sessionId, cols, rows, password? })
+    → Rust: 从当前存储读 session → 建立 russh 连接 → 生成 terminal_id (UUID)
     → 创建 mpsc 通道 (write_tx/resize_tx) → 存入 TerminalMap (DashMap)
     → 后台 Tokio select! 循环（SSH 输出 → emit('ssh_data_{id}') | 写入 | resize）
   ← 返回 terminal_id
@@ -61,15 +61,19 @@ cd src-tauri && cargo test
 |-------|------|
 | `useSessionsStore` | SSH 会话 CRUD，`groupedSessions` 按 `group_name` 聚合 |
 | `useTerminalsStore` | 打开的终端标签列表、活跃 Tab ID，桥接 invoke 调用 |
+| `useStorageStore` | 当前后端/路径状态、显式切换及复制并切换 |
 
 ### Rust 后端模块
 
 | 文件 | 职责 |
 |------|------|
-| `lib.rs` | AppState（SqlitePool + TerminalMap）初始化，Tauri builder |
-| `commands.rs` | 所有 Tauri 命令的薄层胶水代码，委托给 db/ssh 模块 |
+| `lib.rs` | AppState（StorageManager + TerminalMap）初始化，Tauri builder |
+| `commands.rs` | 所有 Tauri 命令的薄层胶水代码，委托给存储/ssh 模块 |
 | `ssh.rs` | SSH 连接逻辑、TerminalMap 类型定义、Tokio 事件循环 |
 | `db.rs` | SQLite 表结构 + CRUD，数据库文件在 `{app_data_dir}/sessions.db` |
+| `storage.rs` | SQLite/YAML 共用的异步会话存储接口 |
+| `storage_manager.rs` | 后端选择、原子设置、显式复制校验与切换 |
+| `yaml_storage.rs` | 严格 YAML schema、安全校验、恢复副本与原子写入 |
 | `models.rs` | Serde 可序列化的数据结构（Session、CreateSession 等） |
 
 ### 前端组件职责
@@ -79,6 +83,7 @@ cd src-tauri && cargo test
 - **`HostCard.vue`** — 单主机卡片，双击连接，右键菜单（连接/编辑/删除）
 - **`TerminalPanel.vue`** — xterm.js 容器，处理全部 SSH 数据收发和窗口 resize
 - **`SessionForm.vue`** — 新建/编辑 Session 的 NModal 表单，含私钥路径自动扫描
+- **`StorageSettings.vue`** — 后端/路径设置和显式复制并切换
 
 ## 关键实现细节
 
@@ -90,8 +95,10 @@ cd src-tauri && cargo test
 
 **私钥扫描**：`get_ssh_key_paths` 命令扫描 `~/.ssh/` 下的标准私钥文件名（`id_rsa`、`id_ed25519` 等），兼容 Windows（USERPROFILE）和 Unix（HOME）。
 
-**sqlx 编译时查询验证**：`db.rs` 使用 `sqlx::query!` 宏，修改 SQL 后需要 `DATABASE_URL` 环境变量或离线缓存（`.sqlx/`）才能编译。
+**存储边界**：没有 `storage-settings.json` 时继续使用 `{app_data_dir}/sessions.db`。YAML 只保存非敏感连接资料和私钥文件路径；密码在连接时一次性传入。复制只允许空目标，校验成功后切换，且不删除源数据。
+
+**sqlx 查询**：`db.rs` 使用运行时 `sqlx::query` / `query_scalar`，本项目当前不依赖 `DATABASE_URL` 或 `.sqlx/` 离线缓存完成编译。
 
 ## CI/CD
 
-`.github/workflows/build.yml` 在 `release` 分支推送时触发，自动构建 Windows（.msi/.exe）、macOS（.dmg）、Linux（.deb/.rpm/.AppImage）安装包。
+`.github/workflows/build.yml` 配置为推送 `v*` tag 时构建 Windows（.msi/.exe）、macOS（.dmg）、Linux（.deb/.rpm/.AppImage）安装包并创建 GitHub Release。本地没有验证该工作流的实际运行或发布结果。

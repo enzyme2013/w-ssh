@@ -12,10 +12,17 @@ A lightweight, cross-platform SSH session manager built with Tauri 2 and Vue 3.
 - 📁 **Session management** — Organize SSH sessions with groups
 - 🔑 **Multiple auth methods** — Password and private key authentication
 - ⚡ **Multiple connections** — Manage concurrent SSH sessions
-- 💾 **Local storage** — Sessions stored locally via SQLite, no cloud required
+- 💾 **Local storage** — SQLite by default, with an optional safe YAML backend; no cloud required
 - 🎨 **Modern dark theme** — Termius-style deep black UI with cold blue accent
 
 ## Changelog
+
+### Current development
+
+- **Dual local storage**: Choose the existing SQLite database or an absolute `.yml` file from Storage Settings
+- **Explicit copy and switch**: Copy only to an empty target, verify every session, keep the source, then switch
+- **YAML credential boundary**: Passwords and private-key contents are never written to YAML; password sessions prompt at connection time
+- **YAML integrity**: Strict schema validation, serialized writes, atomic replacement, and recovery backups before canonicalizing commented files
 
 ### v0.2.0
 
@@ -39,7 +46,7 @@ A lightweight, cross-platform SSH session manager built with Tauri 2 and Vue 3.
 | State | Pinia |
 | Desktop | Tauri 2 |
 | SSH | russh |
-| Database | SQLite (sqlx) |
+| Storage | SQLite (sqlx) or strict YAML 1.2 subset |
 
 ## Getting Started
 
@@ -65,7 +72,7 @@ npm run tauri dev
 npm run tauri build
 ```
 
-The installer will be generated in `src-tauri/target/release/bundle/`.
+The installer will be generated in `src-tauri/target/release/bundle/`. This repository documents a `v*` tag release workflow, but a local build does not prove that a release was published.
 
 ## Contributing
 
