@@ -1,0 +1,148 @@
+{
+  "harnessContract": "adapter",
+  "phase": "completed",
+  "createdAt": "2026-08-03T08:32:38.587Z",
+  "updatedAt": "2026-08-03T09:37:57.849Z",
+  "cwd": "D:\\project\\w-ssh",
+  "goalPath": "harness\\goals\\2026-08-03-g1-sqlite-yaml.md",
+  "runDir": ".harness\\runs\\20260803-163238-g1-sqlite-yaml",
+  "workMode": "local",
+  "executionRole": "implementer",
+  "communication": {
+    "commentary": "minimal",
+    "source": "configured",
+    "reportCadence": "material-transition-or-host-heartbeat",
+    "notifyOn": "blocker, risk, scope-or-authorization-change, user-decision, failed-verification, state-transition",
+    "guidance": "Use one short kickoff that combines skill, reason, scope, boundaries, and next action. Do not narrate routine UI-visible tool activity or repeat unchanged boundaries. Later commentary must add a new material fact unless it is a one-sentence host-required heartbeat."
+  },
+  "conversationRoute": "current-thread",
+  "executionContextLock": {
+    "conversationLane": "current-thread",
+    "controllerThread": "current-thread",
+    "executionCwd": "D:\\project\\w-ssh",
+    "executionBranch": "`master` (existing branch; do not create or switch branches)",
+    "executionSlot": "N/A",
+    "remoteControlWorktree": "no"
+  },
+  "acceptanceMapRequired": true,
+  "acceptanceMapSource": "goal",
+  "acceptanceMapItemCount": 4,
+  "milestoneCompletionMapRequired": false,
+  "milestoneCompletionMapSource": "",
+  "milestoneCompletionMapItemCount": 0,
+  "milestoneCompletionMapRequiredLabels": [],
+  "stageCompletionMapRequired": false,
+  "stageCompletionMapSource": "",
+  "stageCompletionMapItemCount": 0,
+  "stageCompletionMapRequiredLabels": [],
+  "specAcceptanceChecklistSource": "goal",
+  "specAcceptanceChecklistItemCount": 4,
+  "requiredGates": [
+    "spec",
+    "execution",
+    "integration"
+  ],
+  "requiredGateEvidenceSource": "goal",
+  "requiredGateEvidenceItemCount": 3,
+  "taskSize": "medium",
+  "files": [
+    "run.md",
+    "prompt.md",
+    "subagents.md",
+    "dag.md",
+    "dag.json",
+    "agents",
+    "status.json"
+  ],
+  "logs": "logs/",
+  "executionDag": {
+    "version": 1,
+    "dag": "dag.json",
+    "agentsDir": "agents",
+    "enforcement": "required-before-run-completion",
+    "enforced": true,
+    "communication": {
+      "commentary": "minimal",
+      "source": "configured",
+      "reportCadence": "material-transition-or-host-heartbeat",
+      "notifyOn": "blocker, risk, scope-or-authorization-change, user-decision, failed-verification, state-transition",
+      "guidance": "Use one short kickoff that combines skill, reason, scope, boundaries, and next action. Do not narrate routine UI-visible tool activity or repeat unchanged boundaries. Later commentary must add a new material fact unless it is a one-sentence host-required heartbeat."
+    },
+    "launchPolicy": "runtime-dispatched",
+    "runtimeOwnership": "Codex owns scheduling, delegation, concurrency, cancellation, and model selection; Harness records dependencies, ownership, verification, and candidate evidence",
+    "parallelSafety": {
+      "requirement": "parallel writers require separate locked worktrees/cwds; otherwise concurrent nodes must be read-only or have proven non-overlapping file ownership"
+    },
+    "nodeCount": 4,
+    "parallelLayers": [
+      [
+        "batch-1-storage-interface"
+      ],
+      [
+        "batch-2-yaml-backend"
+      ],
+      [
+        "batch-3-app-integration"
+      ],
+      [
+        "batch-4-integration-docs"
+      ]
+    ],
+    "readyNodes": [],
+    "runningNodes": [],
+    "waitingNodes": [],
+    "completedNodes": [
+      "batch-1-storage-interface",
+      "batch-2-yaml-backend",
+      "batch-3-app-integration",
+      "batch-4-integration-docs"
+    ],
+    "blockedNodes": [],
+    "allNodesCompleted": true,
+    "nodeStatus": {
+      "batch-1-storage-interface": {
+        "phase": "completed",
+        "ownership": "current control task only: shared storage interface, SQLite adapter, and contract tests",
+        "verification": "cargo test --manifest-path src-tauri/Cargo.toml: 1 passed, 0 failed; git diff --check on batch files passed; rg found no state.db or legacy db CRUD callers",
+        "candidateEvidence": "agents/batch-1-storage-interface/result.md",
+        "thread": "019fc6bb-6293-7501-a7bc-0fe14168e696",
+        "surface": "current-thread",
+        "isolationEvidence": "single controller in locked project/local checkout; no delegation or concurrent writers"
+      },
+      "batch-2-yaml-backend": {
+        "phase": "completed",
+        "ownership": "current control task only: YAML codec/backend, strict validation, recovery backup, atomic writes, and file-integrity tests; no UI",
+        "verification": "cargo test --offline --manifest-path src-tauri/Cargo.toml: 9 passed, 0 failed; git diff --check src-tauri passed; pinned serde-saphyr 0.0.29 and atomic-write-file 0.3.0 confirmed by cargo tree",
+        "candidateEvidence": "agents/batch-2-yaml-backend/result.md",
+        "thread": "019fc6bb-6293-7501-a7bc-0fe14168e696",
+        "surface": "current-thread",
+        "isolationEvidence": "single controller; batch 1 completed; YAML backend not wired to UI or default runtime"
+      },
+      "batch-3-app-integration": {
+        "phase": "completed",
+        "ownership": "current control task only: backend/path settings, temporary YAML passwords, and explicit verified copy-and-switch",
+        "verification": "cargo test --offline: 13 passed, 0 failed; npm run build passed; git diff --check passed; Browser desktop/mobile settings interaction and no-overflow checks passed with no console errors/warnings",
+        "candidateEvidence": "agents/batch-3-app-integration/result.md",
+        "thread": "019fc6bb-6293-7501-a7bc-0fe14168e696",
+        "surface": "current-thread",
+        "isolationEvidence": "single controller; batches 1 and 2 completed; no branch, worktree, delegation, or concurrent writer"
+      },
+      "batch-4-integration-docs": {
+        "phase": "completed",
+        "ownership": "current control task only: integrated local acceptance, documentation/version consistency, and final state-sync evidence",
+        "verification": "npm run build passed; cargo test --manifest-path src-tauri/Cargo.toml: 15 passed, 0 failed; git diff --check passed; Browser 1280x800 and 390x844 passed; cargo clippy passed with one pre-existing too-many-arguments warning",
+        "candidateEvidence": "agents/batch-4-integration-docs/result.md",
+        "thread": "019fc6bb-6293-7501-a7bc-0fe14168e696",
+        "surface": "current-thread",
+        "isolationEvidence": "single controller; batches 1-3 completed and recorded; no branch, worktree, delegation, or concurrent writer"
+      }
+    }
+  },
+  "verificationCommands": [
+    "npm run build",
+    "cargo test --manifest-path src-tauri/Cargo.toml"
+  ],
+  "summary": "G1 SQLite + YAML 双存储四批串行完成并达到 validated-local",
+  "verificationSummary": "npm run build passed; cargo test --manifest-path src-tauri/Cargo.toml: 15 passed, 0 failed; Goal validation passed with no errors or warnings",
+  "gateEvidence": "spec, execution, and integration gates satisfied in the accepted Spec and Goal; all four required DAG nodes completed serially with node evidence"
+}

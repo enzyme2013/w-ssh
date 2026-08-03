@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "goalPath": "harness\\goals\\2026-08-03-g1-sqlite-yaml.md",
+  "taskSize": "medium",
+  "workMode": "local",
+  "executionRole": "implementer",
+  "communication": {
+    "commentary": "minimal",
+    "source": "configured",
+    "reportCadence": "material-transition-or-host-heartbeat",
+    "notifyOn": "blocker, risk, scope-or-authorization-change, user-decision, failed-verification, state-transition",
+    "guidance": "Use one short kickoff that combines skill, reason, scope, boundaries, and next action. Do not narrate routine UI-visible tool activity or repeat unchanged boundaries. Later commentary must add a new material fact unless it is a one-sentence host-required heartbeat."
+  },
+  "enforcement": "required-before-run-completion",
+  "launchPolicy": "runtime-dispatched",
+  "runtimeOwnership": "Codex owns scheduling, delegation, concurrency, cancellation, and model selection; Harness records dependencies, ownership, verification, and candidate evidence",
+  "parallelSafety": {
+    "requirement": "parallel writers require separate locked worktrees/cwds; otherwise concurrent nodes must be read-only or have proven non-overlapping file ownership"
+  },
+  "nodes": [
+    {
+      "id": "batch-1-storage-interface",
+      "label": "Batch 1 Storage Interface",
+      "mode": "implementer",
+      "dependencies": [],
+      "ownership": "current control task only: shared storage interface, SQLite adapter, and contract tests",
+      "expectedOutput": "SQLite-compatible storage abstraction with non-zero CRUD contract tests and accepted node evidence",
+      "stopConditions": "SQLite behavior/data path changes, unrelated scope growth, credentials, destructive commands, or failed contract verification",
+      "prompt": "agents/batch-1-storage-interface/prompt.md",
+      "status": "agents/batch-1-storage-interface/status.json",
+      "result": "agents/batch-1-storage-interface/result.md"
+    },
+    {
+      "id": "batch-2-yaml-backend",
+      "label": "Batch 2 YAML Backend",
+      "mode": "implementer",
+      "dependencies": ["batch-1-storage-interface"],
+      "ownership": "current control task only: YAML codec/backend, strict validation, recovery backup, atomic writes, and file-integrity tests; no UI",
+      "expectedOutput": "strict recoverable YAML backend with non-zero codec, safety, concurrency, failure, and restart tests",
+      "stopConditions": "unprovable recovery/atomic safety, secret persistence, UI integration before validation, credentials, or destructive commands",
+      "prompt": "agents/batch-2-yaml-backend/prompt.md",
+      "status": "agents/batch-2-yaml-backend/status.json",
+      "result": "agents/batch-2-yaml-backend/result.md"
+    },
+    {
+      "id": "batch-3-app-integration",
+      "label": "Batch 3 Application Integration",
+      "mode": "implementer",
+      "dependencies": ["batch-2-yaml-backend"],
+      "ownership": "current control task only: backend/path settings, temporary YAML passwords, and explicit verified copy-and-switch",
+      "expectedOutput": "registered IPC and focused settings UI with safe copy/switch behavior and frontend/backend verification",
+      "stopConditions": "automatic migration, source deletion, non-empty target overwrite, secret persistence, or failed batch verification",
+      "prompt": "agents/batch-3-app-integration/prompt.md",
+      "status": "agents/batch-3-app-integration/status.json",
+      "result": "agents/batch-3-app-integration/result.md"
+    },
+    {
+      "id": "batch-4-integration-docs",
+      "label": "Batch 4 Integration And Docs",
+      "mode": "implementer",
+      "dependencies": ["batch-3-app-integration"],
+      "ownership": "current control task only: integrated local acceptance, documentation/version consistency, and final state-sync evidence",
+      "expectedOutput": "fresh full test/build evidence, consistent docs/version metadata, satisfied Goal checklist/gates, and validated-local state sync",
+      "stopConditions": "failing required verification, unverifiable rollback/data safety, real SSH/credential/release need, or product-direction conflict",
+      "prompt": "agents/batch-4-integration-docs/prompt.md",
+      "status": "agents/batch-4-integration-docs/status.json",
+      "result": "agents/batch-4-integration-docs/result.md"
+    }
+  ],
+  "edges": [
+    {"from": "batch-1-storage-interface", "to": "batch-2-yaml-backend"},
+    {"from": "batch-2-yaml-backend", "to": "batch-3-app-integration"},
+    {"from": "batch-3-app-integration", "to": "batch-4-integration-docs"}
+  ],
+  "parallelLayers": [
+    ["batch-1-storage-interface"],
+    ["batch-2-yaml-backend"],
+    ["batch-3-app-integration"],
+    ["batch-4-integration-docs"]
+  ]
+}

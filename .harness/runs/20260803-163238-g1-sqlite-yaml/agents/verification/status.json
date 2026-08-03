@@ -1,0 +1,13 @@
+{
+  "node": "verification",
+  "label": "Verification",
+  "phase": "prepared",
+  "createdAt": "2026-08-03T08:32:38.587Z",
+  "updatedAt": "2026-08-03T08:32:38.587Z",
+  "dependencies": [
+    "execution"
+  ],
+  "mode": "read/execute",
+  "prompt": "agents/verification/prompt.md",
+  "result": "agents/verification/result.md"
+}
