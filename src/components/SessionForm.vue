@@ -36,7 +36,15 @@
           <n-radio value="key">私钥</n-radio>
         </n-radio-group>
       </n-form-item>
-      <n-form-item v-if="authType === 'password'" label="密码" path="password">
+      <n-alert
+        v-if="authType === 'password' && isYaml"
+        type="info"
+        :show-icon="false"
+        class="credential-alert"
+      >
+        YAML 模式不保存密码；连接时单次输入。
+      </n-alert>
+      <n-form-item v-else-if="authType === 'password'" label="密码" path="password">
         <n-input
           v-model:value="form.password"
           type="password"
@@ -71,11 +79,12 @@
 import { ref, watch, computed } from 'vue'
 import {
   NModal, NForm, NFormItem, NInput, NInputNumber, NSelect,
-  NButton, NSpace, NRadioGroup, NRadio,
+  NButton, NSpace, NRadioGroup, NRadio, NAlert,
   useMessage, type FormInst, type FormRules,
 } from 'naive-ui'
 import { invoke } from '@tauri-apps/api/core'
 import { useSessionsStore } from '../stores/sessions'
+import { useStorageStore } from '../stores/storage'
 import type { Session } from '../types'
 
 const props = defineProps<{
@@ -122,6 +131,8 @@ watch(authType, async (type) => {
 const formRef = ref<FormInst | null>(null)
 const message = useMessage()
 const store = useSessionsStore()
+const storageStore = useStorageStore()
+const isYaml = computed(() => storageStore.backend === 'yaml')
 
 const defaultForm = () => ({
   name: '',
@@ -185,7 +196,9 @@ async function handleSubmit() {
       host: form.value.host,
       port: form.value.port,
       username: form.value.username,
-      password: authType.value === 'password' ? form.value.password || undefined : undefined,
+      password: authType.value === 'password' && !isYaml.value
+        ? form.value.password || undefined
+        : undefined,
       private_key: authType.value === 'key' ? form.value.private_key || undefined : undefined,
       group_name: form.value.group_name || undefined,
     }
@@ -207,3 +220,10 @@ async function handleSubmit() {
   }
 }
 </script>
+
+<style scoped>
+.credential-alert {
+  margin: 0 0 18px 80px;
+  width: calc(100% - 80px);
+}
+</style>

@@ -23,6 +23,25 @@ export interface CreateSession {
 
 export type UpdateSession = CreateSession & { id: string }
 
+export type StorageBackend = 'sqlite' | 'yaml'
+
+export interface StorageSelection {
+  backend: StorageBackend
+  yaml_path?: string
+}
+
+export interface StorageStatus {
+  backend: StorageBackend
+  yaml_path?: string
+  sqlite_path: string
+  active_error?: string
+}
+
+export interface StorageCopyResult {
+  copied: number
+  status: StorageStatus
+}
+
 export interface TerminalTab {
   id: string          // terminal_id (来自后端)
   session_id: string

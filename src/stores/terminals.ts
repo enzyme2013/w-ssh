@@ -7,11 +7,18 @@ export const useTerminalsStore = defineStore('terminals', () => {
   const tabs = ref<TerminalTab[]>([])
   const activeTabId = ref<string | null>(null)
 
-  async function openTerminal(sessionId: string, sessionName: string, cols: number, rows: number) {
+  async function openTerminal(
+    sessionId: string,
+    sessionName: string,
+    cols: number,
+    rows: number,
+    password?: string,
+  ) {
     const terminalId = await invoke<string>('ssh_connect', {
       sessionId,
       cols,
       rows,
+      password,
     })
 
     const tab: TerminalTab = {

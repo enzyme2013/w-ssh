@@ -53,6 +53,20 @@
         >
           <template #prefix><n-icon :component="SearchOutline" /></template>
         </n-input>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button
+              size="small"
+              quaternary
+              circle
+              aria-label="存储设置"
+              @click="showStorageSettings = true"
+            >
+              <template #icon><n-icon :component="SettingsOutline" /></template>
+            </n-button>
+          </template>
+          存储设置
+        </n-tooltip>
         <n-button size="small" type="primary" @click="handleNewHost">
           <template #icon><n-icon :component="AddOutline" /></template>
           New Host
@@ -106,6 +120,8 @@
       @saved="onSaved"
     />
 
+    <StorageSettings v-model="showStorageSettings" @changed="handleStorageChanged" />
+
     <!-- 删除确认 -->
     <n-modal v-model:show="showDeleteConfirm" preset="dialog" title="确认删除" type="warning">
       <span>删除主机「{{ deletingSession?.name }}」？此操作不可撤销。</span>
@@ -116,13 +132,43 @@
         </n-space>
       </template>
     </n-modal>
+
+    <n-modal
+      v-model:show="showPasswordPrompt"
+      preset="dialog"
+      :title="`连接到 ${pendingSession?.name || ''}`"
+      :show-icon="false"
+      @after-leave="resetPasswordPrompt"
+    >
+      <n-input
+        v-model:value="connectPassword"
+        type="password"
+        show-password-on="click"
+        placeholder="本次连接密码"
+        autofocus
+        @keyup.enter="connectWithPassword"
+      />
+      <template #action>
+        <n-space justify="end">
+          <n-button @click="showPasswordPrompt = false">取消</n-button>
+          <n-button
+            type="primary"
+            :loading="connecting"
+            :disabled="!connectPassword"
+            @click="connectWithPassword"
+          >
+            连接
+          </n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
-  NIcon, NInput, NButton, NModal, NSpace, useMessage,
+  NIcon, NInput, NButton, NModal, NSpace, NTooltip, useMessage,
 } from 'naive-ui'
 import {
   GlobeOutline,
@@ -132,16 +178,20 @@ import {
   DocumentTextOutline,
   SearchOutline,
   AddOutline,
+  SettingsOutline,
 } from '@vicons/ionicons5'
 import { useSessionsStore } from '../stores/sessions'
 import { useTerminalsStore } from '../stores/terminals'
+import { useStorageStore } from '../stores/storage'
 import SessionForm from './SessionForm.vue'
+import StorageSettings from './StorageSettings.vue'
 import HostCard from './HostCard.vue'
 import type { Session } from '../types'
 
 const message = useMessage()
 const sessionsStore = useSessionsStore()
 const terminalsStore = useTerminalsStore()
+const storageStore = useStorageStore()
 
 // 导航状态
 const activeNav = ref<string>('all')
@@ -177,11 +227,46 @@ const currentGroupSessions = computed(() => {
 
 // 连接
 async function handleConnect(session: Session) {
+  if (storageStore.backend === 'yaml' && !session.private_key) {
+    pendingSession.value = session
+    connectPassword.value = ''
+    showPasswordPrompt.value = true
+    return
+  }
   try {
     await terminalsStore.openTerminal(session.id, session.name, 120, 40)
   } catch (e) {
     message.error(`连接失败: ${e}`)
   }
+}
+
+const showPasswordPrompt = ref(false)
+const pendingSession = ref<Session | null>(null)
+const connectPassword = ref('')
+const connecting = ref(false)
+
+async function connectWithPassword() {
+  if (!pendingSession.value || !connectPassword.value) return
+  connecting.value = true
+  try {
+    await terminalsStore.openTerminal(
+      pendingSession.value.id,
+      pendingSession.value.name,
+      120,
+      40,
+      connectPassword.value,
+    )
+    showPasswordPrompt.value = false
+  } catch (e) {
+    message.error(`连接失败: ${e}`)
+  } finally {
+    connecting.value = false
+  }
+}
+
+function resetPasswordPrompt() {
+  connectPassword.value = ''
+  pendingSession.value = null
 }
 
 // 新建/编辑
@@ -200,6 +285,16 @@ function handleEdit(session: Session) {
 
 function onSaved() {
   editingSession.value = undefined
+}
+
+const showStorageSettings = ref(false)
+
+async function handleStorageChanged() {
+  try {
+    await sessionsStore.fetchSessions()
+  } catch (error) {
+    message.error(`无法读取会话: ${error}`)
+  }
 }
 
 // 删除
@@ -226,7 +321,27 @@ async function confirmDelete() {
   }
 }
 
-onMounted(() => sessionsStore.fetchSessions())
+watch(
+  () => sessionsStore.notice,
+  notice => {
+    if (!notice) return
+    message.warning(notice, { duration: 8000 })
+    sessionsStore.clearNotice()
+  },
+)
+
+onMounted(async () => {
+  try {
+    await storageStore.fetchStatus()
+  } catch (error) {
+    message.error(`无法读取存储状态: ${error}`)
+  }
+  try {
+    await sessionsStore.fetchSessions()
+  } catch (error) {
+    message.error(`无法读取会话: ${error}`)
+  }
+})
 </script>
 
 <style scoped>
@@ -271,7 +386,7 @@ onMounted(() => sessionsStore.fetchSessions())
   color: #8899aa;
   border-radius: 6px;
   margin: 1px 6px;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s, padding-left 0.15s;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -286,7 +401,6 @@ onMounted(() => sessionsStore.fetchSessions())
   background: rgba(107, 156, 248, 0.10);
   color: #6b9cf8;
   box-shadow: inset 3px 0 0 0 #6b9cf8;
-  padding-left: 15px;
 }
 
 .nav-item.placeholder {
@@ -363,5 +477,37 @@ onMounted(() => sessionsStore.fetchSessions())
   color: #4a5568;
   font-size: 13px;
   padding: 48px 16px;
+}
+
+@media (max-width: 520px) {
+  .nav-panel {
+    width: 52px;
+  }
+
+  .nav-section-title,
+  .nav-item span {
+    display: none;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .nav-divider {
+    margin-inline: 10px;
+  }
+
+  .content-header {
+    padding-inline: 12px;
+  }
+
+  .search-input {
+    min-width: 0;
+  }
+
+  .cards-scroll {
+    padding: 16px 12px;
+  }
 }
 </style>

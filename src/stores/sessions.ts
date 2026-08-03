@@ -6,11 +6,21 @@ import type { Session, CreateSession, UpdateSession } from '../types'
 export const useSessionsStore = defineStore('sessions', () => {
   const sessions = ref<Session[]>([])
   const loading = ref(false)
+  const notice = ref<string | null>(null)
+
+  async function consumeNotice() {
+    try {
+      notice.value = await invoke<string | null>('take_storage_notice')
+    } catch {
+      // Notice retrieval must not turn a completed CRUD operation into a false failure.
+    }
+  }
 
   async function fetchSessions() {
     loading.value = true
     try {
       sessions.value = await invoke<Session[]>('get_sessions')
+      await consumeNotice()
     } finally {
       loading.value = false
     }
@@ -19,6 +29,7 @@ export const useSessionsStore = defineStore('sessions', () => {
   async function createSession(data: CreateSession) {
     const session = await invoke<Session>('create_session', { data })
     sessions.value.push(session)
+    await consumeNotice()
     return session
   }
 
@@ -26,12 +37,14 @@ export const useSessionsStore = defineStore('sessions', () => {
     const updated = await invoke<Session>('update_session', { data })
     const idx = sessions.value.findIndex(s => s.id === data.id)
     if (idx !== -1) sessions.value[idx] = updated
+    await consumeNotice()
     return updated
   }
 
   async function deleteSession(id: string) {
     await invoke('delete_session', { id })
     sessions.value = sessions.value.filter(s => s.id !== id)
+    await consumeNotice()
   }
 
   const groupedSessions = computed(() => {
@@ -44,5 +57,19 @@ export const useSessionsStore = defineStore('sessions', () => {
     return groups
   })
 
-  return { sessions, loading, fetchSessions, createSession, updateSession, deleteSession, groupedSessions }
+  function clearNotice() {
+    notice.value = null
+  }
+
+  return {
+    sessions,
+    loading,
+    notice,
+    fetchSessions,
+    createSession,
+    updateSession,
+    deleteSession,
+    clearNotice,
+    groupedSessions,
+  }
 })
