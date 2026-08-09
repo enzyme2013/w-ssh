@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::models::{CreateSession, Session, UpdateSession};
+use crate::models::{CreateSession, Session, UpdateGroup, UpdateSession};
 
 pub fn now_str() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -18,6 +18,7 @@ pub trait SessionStorage: Send + Sync {
     async fn get(&self, id: &str) -> Result<Session>;
     async fn create(&self, data: CreateSession) -> Result<Session>;
     async fn update(&self, data: UpdateSession) -> Result<Session>;
+    async fn update_group(&self, data: UpdateGroup) -> Result<Vec<Session>>;
     async fn delete(&self, id: &str) -> Result<()>;
     async fn import_if_empty(&self, sessions: Vec<Session>) -> Result<()>;
     async fn take_notice(&self) -> Option<String> {
@@ -33,9 +34,11 @@ pub async fn assert_storage_contract(storage: &dyn SessionStorage) {
             host: "example.test".into(),
             port: 22,
             username: "tester".into(),
-            password: None,
             private_key: Some("fixture-key-path".into()),
+            auth_method: crate::models::AuthMethod::PrivateKey,
+            icon: Some("server".into()),
             group_name: Some("contract".into()),
+            group_icon: Some("folder".into()),
         })
         .await
         .expect("create should succeed");
@@ -52,9 +55,11 @@ pub async fn assert_storage_contract(storage: &dyn SessionStorage) {
             host: "updated.example.test".into(),
             port: 2202,
             username: "updated-user".into(),
-            password: None,
             private_key: Some("updated-fixture-key-path".into()),
+            auth_method: crate::models::AuthMethod::PrivateKey,
+            icon: Some("cloud".into()),
             group_name: Some("updated-contract".into()),
+            group_icon: Some("layers".into()),
         })
         .await
         .expect("update should succeed");
@@ -62,6 +67,18 @@ pub async fn assert_storage_contract(storage: &dyn SessionStorage) {
     assert_eq!(updated.id, created.id);
     assert_eq!(updated.created_at, created.created_at);
     assert_eq!(storage.get(&created.id).await.unwrap(), updated);
+
+    let renamed = storage
+        .update_group(UpdateGroup {
+            current_name: "updated-contract".into(),
+            name: "renamed-contract".into(),
+            icon: Some("briefcase".into()),
+        })
+        .await
+        .expect("group update should succeed");
+    assert_eq!(renamed.len(), 1);
+    assert_eq!(renamed[0].group_name.as_deref(), Some("renamed-contract"));
+    assert_eq!(renamed[0].group_icon.as_deref(), Some("briefcase"));
 
     storage
         .delete(&created.id)

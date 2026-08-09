@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "goalPath": "harness\\goals\\2026-08-04-g2-ssh.md",
+  "taskSize": "medium",
+  "workMode": "local",
+  "executionRole": "implementer",
+  "communication": {
+    "commentary": "minimal",
+    "source": "configured",
+    "reportCadence": "material-transition-or-host-heartbeat",
+    "notifyOn": "blocker, risk, scope-or-authorization-change, user-decision, failed-verification, state-transition",
+    "guidance": "Use one short kickoff that combines skill, reason, scope, boundaries, and next action. Do not narrate routine UI-visible tool activity or repeat unchanged boundaries. Later commentary must add a new material fact unless it is a one-sentence host-required heartbeat."
+  },
+  "enforcement": "required-before-run-completion",
+  "launchPolicy": "runtime-dispatched",
+  "runtimeOwnership": "Codex owns scheduling, delegation, concurrency, cancellation, and model selection; Harness records dependencies, ownership, verification, and candidate evidence",
+  "parallelSafety": {
+    "requirement": "parallel writers require separate locked worktrees/cwds; otherwise concurrent nodes must be read-only or have proven non-overlapping file ownership"
+  },
+  "nodes": [
+    {
+      "id": "execution",
+      "label": "Runtime Execution",
+      "mode": "implementer",
+      "dependencies": [],
+      "ownership": "accepted goal scope in the current Codex runtime; runtime Goal and Plan own transient execution",
+      "expectedOutput": "focused implementation evidence, changed files, verification summary, and state-sync notes",
+      "stopConditions": "scope conflict, unclear ownership, credentials, destructive commands, production access, or unauthorized delivery",
+      "prompt": "agents/execution/prompt.md",
+      "status": "agents/execution/status.json",
+      "result": "agents/execution/result.md"
+    },
+    {
+      "id": "verification",
+      "label": "Verification",
+      "mode": "read/execute",
+      "dependencies": [
+        "execution"
+      ],
+      "ownership": "fresh deterministic validation, durable acceptance evidence, and residual-risk reporting",
+      "expectedOutput": "pass/fail summary, command evidence, state-sync evidence, and unresolved risks",
+      "stopConditions": "failing verification that needs a product or scope decision",
+      "prompt": "agents/verification/prompt.md",
+      "status": "agents/verification/status.json",
+      "result": "agents/verification/result.md"
+    }
+  ],
+  "edges": [
+    {
+      "from": "execution",
+      "to": "verification"
+    }
+  ],
+  "parallelLayers": [
+    [
+      "execution"
+    ],
+    [
+      "verification"
+    ]
+  ]
+}

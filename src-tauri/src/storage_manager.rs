@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::db::SqliteSessionStorage;
-use crate::models::{CreateSession, Session, UpdateSession};
+use crate::models::{CreateSession, Session, UpdateGroup, UpdateSession};
 use crate::storage::SessionStorage;
 use crate::yaml_storage::YamlSessionStorage;
 
@@ -188,24 +188,51 @@ impl StorageManager {
             .clone()
             .ok_or_else(|| anyhow!(active_error(&active)))
     }
+
+    pub fn sqlite(&self) -> Arc<SqliteSessionStorage> {
+        self.sqlite.clone()
+    }
+
+    async fn decorate(&self, mut session: Session) -> Result<Session> {
+        session.credential_state = self.sqlite.credential_state(&session).await?;
+        Ok(session)
+    }
 }
 
 #[async_trait]
 impl SessionStorage for StorageManager {
     async fn list(&self) -> Result<Vec<Session>> {
-        self.current_storage().await?.list().await
+        let sessions = self.current_storage().await?.list().await?;
+        let mut decorated = Vec::with_capacity(sessions.len());
+        for session in sessions {
+            decorated.push(self.decorate(session).await?);
+        }
+        Ok(decorated)
     }
 
     async fn get(&self, id: &str) -> Result<Session> {
-        self.current_storage().await?.get(id).await
+        let session = self.current_storage().await?.get(id).await?;
+        self.decorate(session).await
     }
 
     async fn create(&self, data: CreateSession) -> Result<Session> {
-        self.current_storage().await?.create(data).await
+        let session = self.current_storage().await?.create(data).await?;
+        self.decorate(session).await
     }
 
     async fn update(&self, data: UpdateSession) -> Result<Session> {
-        self.current_storage().await?.update(data).await
+        let session = self.current_storage().await?.update(data).await?;
+        self.sqlite.mark_credentials_for_rebind(&session).await?;
+        self.decorate(session).await
+    }
+
+    async fn update_group(&self, data: UpdateGroup) -> Result<Vec<Session>> {
+        let sessions = self.current_storage().await?.update_group(data).await?;
+        let mut decorated = Vec::with_capacity(sessions.len());
+        for session in sessions {
+            decorated.push(self.decorate(session).await?);
+        }
+        Ok(decorated)
     }
 
     async fn delete(&self, id: &str) -> Result<()> {
@@ -302,12 +329,13 @@ fn persist_settings(path: &Path, settings: &StorageSettingsFile) -> Result<()> {
 fn verify_copy(
     mut source: Vec<Session>,
     mut target: Vec<Session>,
-    backend: StorageBackend,
+    _backend: StorageBackend,
 ) -> Result<()> {
-    if backend == StorageBackend::Yaml {
-        for session in &mut source {
-            session.password = None;
-        }
+    for session in &mut source {
+        session.credential_state = Default::default();
+    }
+    for session in &mut target {
+        session.credential_state = Default::default();
     }
     source.sort_by(|a, b| a.id.cmp(&b.id));
     target.sort_by(|a, b| a.id.cmp(&b.id));
@@ -331,6 +359,7 @@ fn path_str(path: &Path) -> Result<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::AuthMethod;
     use uuid::Uuid;
 
     fn temp_root() -> PathBuf {
@@ -345,9 +374,11 @@ mod tests {
             host: format!("{name}.test"),
             port: 22,
             username: "tester".into(),
-            password: Some("fixture-password".into()),
             private_key: None,
+            auth_method: AuthMethod::Password,
+            icon: Some("server".into()),
             group_name: Some("fixtures".into()),
+            group_icon: Some("folder".into()),
         }
     }
 
@@ -365,11 +396,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn copy_to_yaml_verifies_data_strips_password_and_keeps_source() {
+    async fn copy_to_yaml_never_exports_quarantined_legacy_password() {
         let root = temp_root();
         let yaml_path = root.join("sessions.yml");
         let manager = StorageManager::open(root.clone()).await.unwrap();
         let created = manager.create(fixture("copy")).await.unwrap();
+        sqlx::query("UPDATE sessions SET password='fixture-password' WHERE id=?")
+            .bind(&created.id)
+            .execute(&manager.sqlite.pool)
+            .await
+            .unwrap();
         let result = manager
             .copy_and_switch(StorageSelection {
                 backend: StorageBackend::Yaml,
@@ -380,7 +416,10 @@ mod tests {
         assert_eq!(result.copied, 1);
         assert_eq!(result.status.backend, StorageBackend::Yaml);
         let copied = manager.get(&created.id).await.unwrap();
-        assert!(copied.password.is_none());
+        assert_eq!(
+            copied.credential_state,
+            crate::models::CredentialState::LegacyPlaintext
+        );
         assert!(!std::fs::read_to_string(&yaml_path)
             .unwrap()
             .contains("fixture-password"));
@@ -389,7 +428,11 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            source.get(&created.id).await.unwrap().password.as_deref(),
+            source
+                .legacy_password(&created.id)
+                .await
+                .unwrap()
+                .as_deref(),
             Some("fixture-password")
         );
         drop(manager);
@@ -508,7 +551,10 @@ mod tests {
 
         let verified_target = YamlSessionStorage::open(yaml_path).await.unwrap();
         let target_session = verified_target.get(&created.id).await.unwrap();
-        assert!(target_session.password.is_none());
+        assert_eq!(
+            target_session.credential_state,
+            crate::models::CredentialState::None
+        );
         drop(manager);
         drop(verified_target);
         let _ = std::fs::remove_dir_all(root);

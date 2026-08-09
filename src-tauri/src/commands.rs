@@ -1,4 +1,5 @@
 use crate::{
+    host_trust::{HostTrustEntry, HostTrustResult},
     models::*,
     ssh,
     storage::SessionStorage,
@@ -31,7 +32,21 @@ pub async fn update_session(state: State<'_, AppState>, data: UpdateSession) -> 
 }
 
 #[tauri::command]
+pub async fn update_group(
+    state: State<'_, AppState>,
+    data: UpdateGroup,
+) -> CmdResult<Vec<Session>> {
+    state.storage.update_group(data).await.map_err(to_str)
+}
+
+#[tauri::command]
 pub async fn delete_session(state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    let session = state.storage.get(&id).await.map_err(to_str)?;
+    state
+        .credentials
+        .delete_if_present(&session)
+        .await
+        .map_err(to_str)?;
     state.storage.delete(&id).await.map_err(to_str)
 }
 
@@ -71,8 +86,8 @@ pub async fn take_storage_notice(state: State<'_, AppState>) -> CmdResult<Option
 #[tauri::command]
 pub fn get_ssh_key_paths() -> Vec<String> {
     let common_names = [
-        "id_rsa",
         "id_ed25519",
+        "id_rsa",
         "id_ecdsa",
         "id_dsa",
         "id_ecdsa_sk",
@@ -97,6 +112,143 @@ pub fn get_ssh_key_paths() -> Vec<String> {
         .collect()
 }
 
+#[tauri::command]
+pub async fn set_session_credential(
+    state: State<'_, AppState>,
+    request: SetCredentialRequest,
+) -> CmdResult<Session> {
+    let session = state
+        .storage
+        .get(&request.session_id)
+        .await
+        .map_err(to_str)?;
+    state
+        .credentials
+        .store(&session, request.kind, request.secret)
+        .await
+        .map_err(to_str)?;
+    state.storage.get(&request.session_id).await.map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn delete_session_credential(
+    state: State<'_, AppState>,
+    session_id: String,
+    kind: CredentialKind,
+) -> CmdResult<Session> {
+    let session = state.storage.get(&session_id).await.map_err(to_str)?;
+    state
+        .credentials
+        .delete(&session, kind)
+        .await
+        .map_err(to_str)?;
+    state.storage.get(&session_id).await.map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn confirm_session_credential_rebind(
+    state: State<'_, AppState>,
+    session_id: String,
+    kind: CredentialKind,
+) -> CmdResult<Session> {
+    let session = state.storage.get(&session_id).await.map_err(to_str)?;
+    state
+        .credentials
+        .confirm_rebind(&session, kind)
+        .await
+        .map_err(to_str)?;
+    state.storage.get(&session_id).await.map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn get_legacy_credential_summary(
+    state: State<'_, AppState>,
+) -> CmdResult<LegacyCredentialSummary> {
+    state.credentials.legacy_summary().await.map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn migrate_legacy_credential(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> CmdResult<Session> {
+    let session = state.storage.get(&session_id).await.map_err(to_str)?;
+    state
+        .credentials
+        .migrate_legacy(&session)
+        .await
+        .map_err(to_str)?;
+    state.storage.get(&session_id).await.map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn migrate_all_legacy_credentials(state: State<'_, AppState>) -> CmdResult<usize> {
+    state.credentials.migrate_all_legacy().await.map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn delete_legacy_credential(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> CmdResult<bool> {
+    state
+        .credentials
+        .delete_legacy(&session_id)
+        .await
+        .map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn delete_all_legacy_credentials(state: State<'_, AppState>) -> CmdResult<usize> {
+    state.credentials.delete_all_legacy().await.map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn ssh_trust_preflight(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> CmdResult<HostTrustResult> {
+    let session = state.storage.get(&session_id).await.map_err(to_str)?;
+    let port = u16::try_from(session.port).map_err(to_str)?;
+    ssh::probe_host_key(state.host_trust.clone(), session.host, port)
+        .await
+        .map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn accept_host_trust(
+    state: State<'_, AppState>,
+    challenge_id: String,
+) -> CmdResult<HostTrustEntry> {
+    state
+        .host_trust
+        .accept(&challenge_id, false)
+        .await
+        .map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn replace_host_trust(
+    state: State<'_, AppState>,
+    challenge_id: String,
+) -> CmdResult<HostTrustEntry> {
+    state
+        .host_trust
+        .accept(&challenge_id, true)
+        .await
+        .map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn get_host_trust_entries(state: State<'_, AppState>) -> CmdResult<Vec<HostTrustEntry>> {
+    state.host_trust.list().await.map_err(to_str)
+}
+
+#[tauri::command]
+pub async fn delete_host_trust(state: State<'_, AppState>, endpoint: String) -> CmdResult<bool> {
+    state.host_trust.delete(&endpoint).await.map_err(to_str)
+}
+
 // ── SSH ────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -106,24 +258,23 @@ pub async fn ssh_connect(
     session_id: String,
     cols: u32,
     rows: u32,
-    password: Option<String>,
+    one_time_secret: Option<ConnectSecret>,
 ) -> CmdResult<String> {
     let session = state.storage.get(&session_id).await.map_err(to_str)?;
 
     let terminal_id = uuid::Uuid::new_v4().to_string();
 
-    ssh::connect(
-        app,
-        terminal_id.clone(),
-        state.terminals.clone(),
-        session.host,
-        session.port as u16,
-        session.username,
-        password.or(session.password),
-        session.private_key,
+    ssh::connect(ssh::ConnectRequest {
+        app_handle: app,
+        terminal_id: terminal_id.clone(),
+        terminal_map: state.terminals.clone(),
+        trust: state.host_trust.clone(),
+        credentials: state.credentials.clone(),
+        session,
+        one_time_secret,
         cols,
         rows,
-    )
+    })
     .await
     .map_err(to_str)?;
 

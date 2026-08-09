@@ -25,7 +25,8 @@ w-ssh/
 │   │   ├── HostCard.vue        # Single host card with context menu
 │   │   ├── TerminalPanel.vue   # xterm.js container per connection
 │   │   ├── SessionForm.vue     # Create/edit session modal
-│   │   └── StorageSettings.vue # Backend/path and explicit copy modal
+│   │   ├── StorageSettings.vue # Backend/path, copy, legacy migration
+│   │   └── TrustSettings.vue   # App-owned host trust management
 │   ├── stores/
 │   │   ├── sessions.ts         # Session CRUD + groupedSessions computed
 │   │   ├── storage.ts          # Active backend and copy/switch state
@@ -37,6 +38,8 @@ w-ssh/
     ├── main.rs                 # Entry point
     ├── commands.rs             # Tauri command handlers (thin layer)
     ├── ssh.rs                  # SSH logic, TerminalMap, Tokio loop
+    ├── host_trust.rs           # TOFU, normalized endpoints, known_hosts
+    ├── credentials.rs          # OS provider boundary and legacy migration
     ├── db.rs                   # SQLite schema + CRUD
     ├── storage.rs              # Shared async storage contract
     ├── storage_manager.rs      # Selection, verified copy, atomic settings
@@ -75,23 +78,28 @@ listen('ssh_closed_{id}')     ←   app.emit("ssh_closed_{id}", ())
         │
 2. VaultsView.handleConnect(session)
         │
-3. terminalsStore.openTerminal(sessionId, name, cols, rows, password?)
+3. invoke('ssh_trust_preflight', { sessionId })
+        │    → probe without credentials
+        │    → exact match / first-use confirmation / changed-key block
         │
-4. invoke('ssh_connect', { sessionId, cols, rows, password? })
+4. terminalsStore.openTerminal(sessionId, name, cols, rows, oneTimeSecret?)
         │
-5. Rust: fetch session from active storage → build russh client
-        │    → authenticate (password or private key)
+5. invoke('ssh_connect', { sessionId, cols, rows, oneTimeSecret? })
+        │
+6. Rust: fetch session → establish transport → recheck trusted host key
+        │    → only now resolve one-time or OS credential
+        │    → authenticate (password or private key + optional passphrase)
         │    → request PTY (xterm-256color, cols×rows)
         │    → request shell
         │
-6. Rust: generate terminal_id (UUID)
+7. Rust: generate terminal_id (UUID)
         │    → create mpsc channels (write_tx, resize_tx)
         │    → insert TerminalHandle into TerminalMap
         │    → spawn Tokio background task
         │
-7. Return terminal_id to frontend
+8. Return terminal_id to frontend
         │
-8. Frontend: push TerminalTab, set activeTabId = terminal_id
+9. Frontend: push TerminalTab, set activeTabId = terminal_id
         │    → App.vue switches to TerminalPanel
         │    → TerminalPanel mounts xterm.js + registers listeners
 ```
@@ -126,6 +134,7 @@ loop {
 ```
 sessions[]          ← loaded from the active backend via get_sessions
 groupedSessions     ← computed: sessions grouped by group_name (default: "未分组")
+groups              ← computed group name/icon metadata for navigation and selectors
 ```
 Mutations go through Tauri invoke calls; the store updates its local ref on success.
 
@@ -152,9 +161,12 @@ activeTabId         ← string | null
 ```typescript
 Session {
   id, name, host, port, username,
-  password?,       // SQLite only; always absent when loaded from YAML
   private_key?,    // file path
+  auth_method,     // password | private_key
+  credential_state,// none | stored | legacy_plaintext | needs_rebind
+  icon?,            // host-card icon key
   group_name?,
+  group_icon?,      // duplicated across group members for backend-neutral persistence
   created_at, updated_at
 }
 
@@ -166,13 +178,24 @@ TerminalTab {
 }
 ```
 
+Groups remain derived rather than using a separate table. `update_group` performs one atomic backend mutation so SQLite and YAML cannot expose a partially renamed group.
+
 ---
 
-## Known Limitations (MVP)
+## Known Limitations
 
-- **No SSH host key verification** — `check_server_key()` always returns `Ok(true)`
-- **Passwords stored in plaintext** when SQLite is selected; YAML never persists passwords
+- Real Windows/macOS/Linux credential providers and real SSH servers are not covered by deterministic automated tests.
+- Host certificates/CA, SSHFP, ssh-agent, PKCS#11, hardware keys, and global `~/.ssh/known_hosts` integration are not implemented.
 - **Keys / Port Forwarding / Logs** sections in VaultsView are placeholders
+
+## Trust And Credential Safety Model
+
+- `{app_data_dir}/known_hosts` uses an app-owned strict OpenSSH-compatible subset. Host and port are normalized, including IDNA and IPv6; displayed fingerprints use SHA-256.
+- First use is TOFU with explicit confirmation. Exact key material matches; changed, corrupt, or unsupported records fail closed. Replacing a changed key is a separate explicit action.
+- In-process serialization, a cross-process file lock, same-directory temporary file, sync, and atomic replacement prevent lost trust updates.
+- Session storage and wire DTOs contain no password or passphrase. Provider references are derived from session ID and credential kind; SQLite stores only non-secret target-binding metadata.
+- Provider reads happen only after the formal SSH transport host check. A changed target requires explicit rebind; an unavailable provider falls back only to user-supplied one-time input.
+- Existing SQLite password values are quarantined. Explicit migration writes and reads back the OS credential before clearing one row; failure preserves the old value for retry.
 
 ## Storage Safety Model
 

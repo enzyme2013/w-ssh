@@ -20,6 +20,23 @@
           {{ store.status.active_error }}
         </n-alert>
 
+        <n-alert v-if="legacy?.count" type="warning" :show-icon="false">
+          检测到 {{ legacy.count }} 个隔离的旧版 SQLite 密码。它们不会被显示或自动用于连接。
+          <div class="legacy-actions">
+            <n-button size="small" type="primary" :loading="securityBusy" @click="migrateAllLegacy">
+              全部安全迁移
+            </n-button>
+            <n-popconfirm @positive-click="deleteAllLegacy">
+              <template #trigger>
+                <n-button size="small" type="error" secondary :disabled="securityBusy">
+                  删除旧密码
+                </n-button>
+              </template>
+              仅删除旧 SQLite 密码，不删除会话。此操作不可恢复。
+            </n-popconfirm>
+          </div>
+        </n-alert>
+
         <div class="field-group">
           <span class="field-label">选择后端</span>
           <n-radio-group v-model:value="draftBackend" size="small">
@@ -78,12 +95,14 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import {
   NAlert,
   NButton,
   NIcon,
   NInput,
   NModal,
+  NPopconfirm,
   NRadioButton,
   NRadioGroup,
   NSpin,
@@ -92,7 +111,7 @@ import {
 } from 'naive-ui'
 import { CheckmarkOutline, CopyOutline } from '@vicons/ionicons5'
 import { useStorageStore } from '../stores/storage'
-import type { StorageBackend, StorageSelection } from '../types'
+import type { LegacyCredentialSummary, StorageBackend, StorageSelection } from '../types'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{
@@ -105,6 +124,8 @@ const message = useMessage()
 const visible = ref(props.modelValue)
 const draftBackend = ref<StorageBackend>('sqlite')
 const yamlPath = ref('')
+const legacy = ref<LegacyCredentialSummary | null>(null)
+const securityBusy = ref(false)
 
 const busy = computed(() => store.loading || store.applying || store.copying)
 const isChangingBackend = computed(() => (
@@ -133,6 +154,7 @@ watch(
     if (!open) return
     try {
       await store.fetchStatus()
+      legacy.value = await invoke<LegacyCredentialSummary>('get_legacy_credential_summary')
       resetDraft()
     } catch (error) {
       message.error(`无法读取存储状态: ${error}`)
@@ -142,6 +164,34 @@ watch(
 
 function backendLabel(backend?: StorageBackend) {
   return backend === 'yaml' ? 'YAML' : 'SQLite'
+}
+
+async function migrateAllLegacy() {
+  securityBusy.value = true
+  try {
+    const count = await invoke<number>('migrate_all_legacy_credentials')
+    legacy.value = await invoke<LegacyCredentialSummary>('get_legacy_credential_summary')
+    message.success(`已安全迁移并校验 ${count} 个密码`)
+    emit('changed')
+  } catch (error) {
+    message.error(`迁移停止，未完成项保持原状: ${error}`)
+  } finally {
+    securityBusy.value = false
+  }
+}
+
+async function deleteAllLegacy() {
+  securityBusy.value = true
+  try {
+    const count = await invoke<number>('delete_all_legacy_credentials')
+    legacy.value = await invoke<LegacyCredentialSummary>('get_legacy_credential_summary')
+    message.success(`已删除 ${count} 个旧密码，会话资料保持不变`)
+    emit('changed')
+  } catch (error) {
+    message.error(`删除失败: ${error}`)
+  } finally {
+    securityBusy.value = false
+  }
 }
 
 function selection(): StorageSelection {
@@ -187,6 +237,12 @@ async function handleCopy() {
   flex-direction: column;
   gap: 18px;
   min-height: 240px;
+}
+
+.legacy-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .status-row,

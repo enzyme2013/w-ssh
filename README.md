@@ -13,6 +13,8 @@ A lightweight, cross-platform SSH session manager built with Tauri 2 and Vue 3.
 - 🔑 **Multiple auth methods** — Password and private key authentication
 - ⚡ **Multiple connections** — Manage concurrent SSH sessions
 - 💾 **Local storage** — SQLite by default, with an optional safe YAML backend; no cloud required
+- 🛡️ **Host trust** — App-owned `known_hosts`, TOFU confirmation, and fail-closed key changes
+- 🔐 **Credential isolation** — Passwords and key passphrases use the operating-system credential store
 - 🎨 **Modern dark theme** — Termius-style deep black UI with cold blue accent
 
 ## Changelog
@@ -21,8 +23,11 @@ A lightweight, cross-platform SSH session manager built with Tauri 2 and Vue 3.
 
 - **Dual local storage**: Choose the existing SQLite database or an absolute `.yml` file from Storage Settings
 - **Explicit copy and switch**: Copy only to an empty target, verify every session, keep the source, then switch
-- **YAML credential boundary**: Passwords and private-key contents are never written to YAML; password sessions prompt at connection time
+- **Host trust**: First use shows a SHA-256 fingerprint; changed keys are blocked until explicitly replaced
+- **Credential boundary**: Session DTOs, SQLite, and YAML contain no new passwords or passphrases; saving uses the OS credential store and one-time input remains available
+- **Legacy SQLite migration**: Existing plaintext passwords are quarantined and require an explicit verified migration or explicit deletion
 - **YAML integrity**: Strict schema validation, serialized writes, atomic replacement, and recovery backups before canonicalizing commented files
+- **Host and group organization**: Double-click host cards to connect, choose host/group icons, select groups from a searchable dropdown, and atomically rename groups
 
 ### v0.2.0
 

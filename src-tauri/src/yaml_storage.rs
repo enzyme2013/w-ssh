@@ -12,7 +12,9 @@ use std::path::{Path, PathBuf};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::models::{CreateSession, Session, UpdateSession};
+use crate::models::{
+    AuthMethod, CreateSession, CredentialState, Session, UpdateGroup, UpdateSession,
+};
 use crate::storage::{now_str, SessionStorage};
 
 const SCHEMA_VERSION: u32 = 1;
@@ -42,8 +44,12 @@ struct YamlSession {
     host: String,
     port: i64,
     username: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    icon: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     group_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    group_icon: Option<String>,
     auth: YamlAuth,
     created_at: String,
     updated_at: String,
@@ -171,6 +177,38 @@ impl SessionStorage for YamlSessionStorage {
             current.created_at = created_at;
             let result = Session::from(current.clone());
             Ok((result, true))
+        })
+        .await
+    }
+
+    async fn update_group(&self, data: UpdateGroup) -> Result<Vec<Session>> {
+        let current_name = data.current_name.trim().to_owned();
+        let name = data.name.trim().to_owned();
+        validate_group(&current_name, &name, data.icon.as_deref())?;
+        self.mutate(move |document| {
+            if current_name != name
+                && document
+                    .sessions
+                    .iter()
+                    .any(|session| session.group_name.as_deref() == Some(name.as_str()))
+            {
+                bail!("目标分组已存在，请使用其他名称");
+            }
+
+            let now = now_str();
+            let mut updated = Vec::new();
+            for session in &mut document.sessions {
+                if session.group_name.as_deref() == Some(current_name.as_str()) {
+                    session.group_name = Some(name.clone());
+                    session.group_icon = data.icon.clone();
+                    session.updated_at = now.clone();
+                    updated.push(Session::from(session.clone()));
+                }
+            }
+            if updated.is_empty() {
+                bail!("分组不存在: {current_name}");
+            }
+            Ok((updated, true))
         })
         .await
     }
@@ -350,9 +388,6 @@ fn validate_session(session: &YamlSession) -> Result<()> {
 }
 
 fn yaml_session_from_create(data: CreateSession) -> Result<YamlSession> {
-    if data.password.is_some() && data.private_key.is_some() {
-        bail!("YAML 会话不能同时提供密码和私钥路径");
-    }
     let now = now_str();
     let session = YamlSession {
         id: Uuid::new_v4().to_string(),
@@ -360,8 +395,10 @@ fn yaml_session_from_create(data: CreateSession) -> Result<YamlSession> {
         host: data.host,
         port: data.port,
         username: data.username,
+        icon: data.icon,
         group_name: data.group_name,
-        auth: yaml_auth(data.private_key),
+        group_icon: data.group_icon,
+        auth: yaml_auth(data.auth_method, data.private_key)?,
         created_at: now.clone(),
         updated_at: now,
     };
@@ -370,17 +407,16 @@ fn yaml_session_from_create(data: CreateSession) -> Result<YamlSession> {
 }
 
 fn yaml_session_from_update(data: UpdateSession) -> Result<YamlSession> {
-    if data.password.is_some() && data.private_key.is_some() {
-        bail!("YAML 会话不能同时提供密码和私钥路径");
-    }
     let session = YamlSession {
         id: data.id,
         name: data.name,
         host: data.host,
         port: data.port,
         username: data.username,
+        icon: data.icon,
         group_name: data.group_name,
-        auth: yaml_auth(data.private_key),
+        group_icon: data.group_icon,
+        auth: yaml_auth(data.auth_method, data.private_key)?,
         created_at: String::new(),
         updated_at: now_str(),
     };
@@ -397,8 +433,10 @@ fn yaml_session_from_session(session: Session) -> Result<YamlSession> {
         host: session.host,
         port: session.port,
         username: session.username,
+        icon: session.icon,
         group_name: session.group_name,
-        auth: yaml_auth(session.private_key),
+        group_icon: session.group_icon,
+        auth: yaml_auth(session.auth_method, session.private_key)?,
         created_at: session.created_at,
         updated_at: session.updated_at,
     };
@@ -406,16 +444,18 @@ fn yaml_session_from_session(session: Session) -> Result<YamlSession> {
     Ok(imported)
 }
 
-fn yaml_auth(private_key: Option<String>) -> YamlAuth {
-    match private_key {
-        Some(path) => YamlAuth {
+fn yaml_auth(auth_method: AuthMethod, private_key: Option<String>) -> Result<YamlAuth> {
+    match (auth_method, private_key) {
+        (AuthMethod::PrivateKey, Some(path)) => Ok(YamlAuth {
             method: YamlAuthMethod::PrivateKey,
             private_key: Some(path),
-        },
-        None => YamlAuth {
+        }),
+        (AuthMethod::Password, None) => Ok(YamlAuth {
             method: YamlAuthMethod::Password,
             private_key: None,
-        },
+        }),
+        (AuthMethod::Password, Some(_)) => bail!("password 认证不能包含 private_key"),
+        (AuthMethod::PrivateKey, None) => bail!("private_key 认证必须提供密钥路径"),
     }
 }
 
@@ -523,13 +563,36 @@ impl From<YamlSession> for Session {
             host: value.host,
             port: value.port,
             username: value.username,
-            password: None,
             private_key: value.auth.private_key,
+            auth_method: match value.auth.method {
+                YamlAuthMethod::Password => AuthMethod::Password,
+                YamlAuthMethod::PrivateKey => AuthMethod::PrivateKey,
+            },
+            credential_state: CredentialState::None,
+            icon: value.icon,
             group_name: value.group_name,
+            group_icon: value.group_icon,
             created_at: value.created_at,
             updated_at: value.updated_at,
         }
     }
+}
+
+fn validate_group(current_name: &str, name: &str, icon: Option<&str>) -> Result<()> {
+    if current_name.is_empty() || name.is_empty() {
+        bail!("分组名称不能为空");
+    }
+    if current_name.len() > 200
+        || name.len() > 200
+        || current_name.contains('\0')
+        || name.contains('\0')
+    {
+        bail!("分组名称无效或过长");
+    }
+    if icon.is_some_and(|value| value.len() > 64 || value.contains('\0')) {
+        bail!("分组图标无效");
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -567,13 +630,15 @@ mod tests {
                 host: "example.test".into(),
                 port: 22,
                 username: "user".into(),
-                password: Some("never-persist".into()),
                 private_key: None,
+                auth_method: AuthMethod::Password,
+                icon: None,
                 group_name: None,
+                group_icon: None,
             })
             .await
             .unwrap();
-        assert!(created.password.is_none());
+        assert_eq!(created.credential_state, CredentialState::None);
         let raw = std::fs::read_to_string(&path).unwrap();
         assert!(!raw.contains("never-persist"));
         assert!(!raw.contains("password:"));
@@ -684,9 +749,11 @@ mod tests {
                         host: format!("host-{index}.test"),
                         port: 22,
                         username: "user".into(),
-                        password: None,
                         private_key: Some(format!("fixture-key-{index}")),
+                        auth_method: AuthMethod::PrivateKey,
+                        icon: None,
                         group_name: None,
+                        group_icon: None,
                     })
                     .await
                     .unwrap();

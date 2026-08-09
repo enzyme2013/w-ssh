@@ -1,0 +1,66 @@
+{
+  "contract": "adapter",
+  "projectName": "w-ssh",
+  "adapter": {
+    "docs": "harness/README.md",
+    "machineReadable": ".harness/config.json",
+    "preflight": [
+      "Read AGENTS.md, harness/tasks.md, harness/status.md, and the active Goal/Spec.",
+      "Inspect git status and preserve pre-existing user changes.",
+      "Do not connect to a real SSH host or read real credentials without explicit authorization."
+    ],
+    "stateSync": [
+      "Update harness/status.md after material state transitions.",
+      "Keep accepted phase in the Goal index and durable evidence in Goal/Run artifacts."
+    ]
+  },
+  "paths": {
+    "taskIndex": "harness/tasks.md",
+    "status": "harness/status.md",
+    "specs": "harness/specs",
+    "goals": "harness/goals",
+    "milestones": "harness/milestones",
+    "runs": ".harness/runs",
+    "gateRecords": ".harness/runs",
+    "deferredRegister": "harness/milestones",
+    "mentalModels": "harness/mental-models",
+    "mentalModelIndex": "harness/mental-models/README.md"
+  },
+  "language": {
+    "default": "zh-CN"
+  },
+  "artifactPolicy": {
+    "runs": "tracked",
+    "durableEvidence": [
+      "harness/status.md",
+      "harness/goals",
+      "harness/milestones"
+    ],
+    "retention": {
+      "completedDays": 30,
+      "blockedDays": 30,
+      "keepLatest": 20
+    },
+    "status": {
+      "maxLines": 160
+    },
+    "tasks": {
+      "archive": "harness/tasks-archive.md",
+      "keepDone": 10
+    }
+  },
+  "communication": {
+    "commentary": "minimal"
+  },
+  "worktree": {
+    "defaultPolicy": "ask"
+  },
+  "gates": {
+    "requiredForCompletion": [
+      "spec",
+      "execution",
+      "integration"
+    ],
+    "blocking": []
+  }
+}

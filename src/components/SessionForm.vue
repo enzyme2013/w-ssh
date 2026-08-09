@@ -18,6 +18,9 @@
       <n-form-item label="会话名称" path="name">
         <n-input v-model:value="form.name" placeholder="例如：生产服务器" />
       </n-form-item>
+      <n-form-item label="主机图标">
+        <IconSelect v-model="form.icon" />
+      </n-form-item>
       <n-form-item label="主机地址" path="host">
         <n-input v-model:value="form.host" placeholder="IP 或域名" />
       </n-form-item>
@@ -28,7 +31,15 @@
         <n-input v-model:value="form.username" placeholder="例如：root" />
       </n-form-item>
       <n-form-item label="分组" path="group_name">
-        <n-input v-model:value="form.group_name" placeholder="可选，用于分组管理" />
+        <n-select
+          v-model:value="form.group_name"
+          :options="groupOptions"
+          :render-label="renderGroupLabel"
+          filterable
+          tag
+          clearable
+          placeholder="选择或输入新分组"
+        />
       </n-form-item>
       <n-form-item label="认证方式">
         <n-radio-group v-model:value="authType">
@@ -36,32 +47,42 @@
           <n-radio value="key">私钥</n-radio>
         </n-radio-group>
       </n-form-item>
-      <n-alert
-        v-if="authType === 'password' && isYaml"
-        type="info"
-        :show-icon="false"
-        class="credential-alert"
-      >
-        YAML 模式不保存密码；连接时单次输入。
-      </n-alert>
-      <n-form-item v-else-if="authType === 'password'" label="密码" path="password">
+      <n-form-item v-if="authType === 'password'" label="密码">
         <n-input
-          v-model:value="form.password"
+          v-model:value="form.secret"
           type="password"
           show-password-on="click"
-          placeholder="SSH 密码"
+          :placeholder="isEdit ? '留空则不修改已保存凭据' : '可留空，连接时再输入'"
         />
       </n-form-item>
-      <n-form-item v-else label="私钥路径" path="private_key">
-        <n-select
-          v-model:value="form.private_key"
-          :options="keyOptions"
-          filterable
-          tag
-          placeholder="选择或手动输入私钥路径"
-          :loading="loadingKeys"
-        />
+      <template v-else>
+        <n-form-item label="私钥路径" path="private_key">
+          <n-select
+            v-model:value="form.private_key"
+            :options="keyOptions"
+            filterable
+            tag
+            placeholder="选择或手动输入私钥路径"
+            :loading="loadingKeys"
+          />
+        </n-form-item>
+        <n-form-item label="密钥口令">
+          <n-input
+            v-model:value="form.secret"
+            type="password"
+            show-password-on="click"
+            placeholder="Passphrase 可选，默认留空"
+          />
+        </n-form-item>
+      </template>
+      <n-form-item v-if="form.secret" label="凭据保存">
+        <n-checkbox v-model:checked="saveCredential">
+          保存到系统凭据库
+        </n-checkbox>
       </n-form-item>
+      <n-alert type="info" :show-icon="false" class="credential-alert">
+        会话文件只保存连接资料；密码与 passphrase 不写入 SQLite 或 YAML。
+      </n-alert>
     </n-form>
 
     <template #action>
@@ -76,16 +97,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { h, ref, watch, computed } from 'vue'
 import {
   NModal, NForm, NFormItem, NInput, NInputNumber, NSelect,
-  NButton, NSpace, NRadioGroup, NRadio, NAlert,
-  useMessage, type FormInst, type FormRules,
+  NButton, NSpace, NRadioGroup, NRadio, NAlert, NCheckbox, NIcon,
+  useMessage, type FormInst, type FormRules, type SelectOption,
 } from 'naive-ui'
 import { invoke } from '@tauri-apps/api/core'
 import { useSessionsStore } from '../stores/sessions'
-import { useStorageStore } from '../stores/storage'
 import type { Session } from '../types'
+import IconSelect from './IconSelect.vue'
+import { resolveSessionIcon } from '../utils/sessionIcons'
 
 const props = defineProps<{
   modelValue: boolean
@@ -105,24 +127,33 @@ watch(visible, v => emit('update:modelValue', v))
 const isEdit = ref(false)
 const authType = ref<'password' | 'key'>('password')
 const saving = ref(false)
+const saveCredential = ref(true)
 
 // 系统私钥检测
 const availableKeys = ref<string[]>([])
 const loadingKeys = ref(false)
-const keyOptions = computed(() =>
-  availableKeys.value.map(k => ({ label: k.replace(/\\/g, '/'), value: k }))
-)
+const fallbackKeyPaths = ['~/.ssh/id_ed25519', '~/.ssh/id_rsa']
+const keyOptions = computed(() => {
+  const keys = availableKeys.value.length > 0 ? availableKeys.value : fallbackKeyPaths
+  return keys.map(key => ({
+    label: `~/.ssh/${key.replace(/\\/g, '/').split('/').pop()}`,
+    value: key,
+  }))
+})
 
 // 切换到私钥模式时自动扫描 ~/.ssh/
-watch(authType, async (type) => {
+watch(authType, async (type, previous) => {
+  if (type !== previous) form.value.secret = ''
   if (type === 'key' && availableKeys.value.length === 0) {
     loadingKeys.value = true
     try {
       availableKeys.value = await invoke<string[]>('get_ssh_key_paths')
-      // 未编辑状态下自动选第一个
-      if (!form.value.private_key && availableKeys.value.length > 0) {
-        form.value.private_key = availableKeys.value[0]
+      if (!form.value.private_key) {
+        form.value.private_key = availableKeys.value[0] || fallbackKeyPaths[0]
       }
+    } catch {
+      availableKeys.value = []
+      if (!form.value.private_key) form.value.private_key = fallbackKeyPaths[0]
     } finally {
       loadingKeys.value = false
     }
@@ -131,17 +162,29 @@ watch(authType, async (type) => {
 const formRef = ref<FormInst | null>(null)
 const message = useMessage()
 const store = useSessionsStore()
-const storageStore = useStorageStore()
-const isYaml = computed(() => storageStore.backend === 'yaml')
+const groupOptions = computed(() => store.groups
+  .filter(group => group.editable)
+  .map(group => ({ label: group.name, value: group.name, icon: group.icon })))
+
+function renderGroupLabel(option: SelectOption) {
+  return h('span', { class: 'group-option' }, [
+    h(NIcon, {
+      component: resolveSessionIcon(String(option.icon || 'folder'), 'folder'),
+      size: 16,
+    }),
+    h('span', String(option.label)),
+  ])
+}
 
 const defaultForm = () => ({
   name: '',
   host: '',
   port: 22,
   username: 'root',
-  password: '',
+  secret: '',
   private_key: '',
-  group_name: props.defaultGroup || '',
+  icon: 'server',
+  group_name: props.defaultGroup || null as string | null,
 })
 
 const form = ref(defaultForm())
@@ -162,11 +205,12 @@ watch(
         host: s.host,
         port: s.port,
         username: s.username,
-        password: s.password || '',
+        secret: '',
         private_key: s.private_key || '',
-        group_name: s.group_name || '',
+        icon: s.icon || 'server',
+        group_name: s.group_name || null,
       }
-      authType.value = s.private_key ? 'key' : 'password'
+      authType.value = s.auth_method === 'private_key' ? 'key' : 'password'
     } else {
       isEdit.value = false
       form.value = defaultForm()
@@ -180,6 +224,7 @@ function resetForm() {
   form.value = defaultForm()
   isEdit.value = false
   authType.value = 'password'
+  saveCredential.value = true
 }
 
 async function handleSubmit() {
@@ -196,11 +241,11 @@ async function handleSubmit() {
       host: form.value.host,
       port: form.value.port,
       username: form.value.username,
-      password: authType.value === 'password' && !isYaml.value
-        ? form.value.password || undefined
-        : undefined,
       private_key: authType.value === 'key' ? form.value.private_key || undefined : undefined,
-      group_name: form.value.group_name || undefined,
+      auth_method: authType.value === 'key' ? 'private_key' as const : 'password' as const,
+      icon: form.value.icon,
+      group_name: form.value.group_name?.trim() || undefined,
+      group_icon: store.groupIconForName(form.value.group_name?.trim()),
     }
 
     let saved: Session
@@ -210,7 +255,19 @@ async function handleSubmit() {
       saved = await store.createSession(payload)
     }
 
-    message.success(isEdit.value ? '保存成功' : '创建成功')
+    if (form.value.secret && saveCredential.value) {
+      try {
+        saved = await store.setCredential(
+          saved.id,
+          authType.value === 'key' ? 'private_key_passphrase' : 'password',
+          form.value.secret,
+        )
+      } catch (error) {
+        message.warning(`会话已保存，但系统凭据库写入失败：${error}`)
+      }
+    }
+
+    message.success(isEdit.value ? '会话资料已保存' : '会话已创建')
     emit('saved', saved)
     visible.value = false
   } catch (e) {
@@ -225,5 +282,12 @@ async function handleSubmit() {
 .credential-alert {
   margin: 0 0 18px 80px;
   width: calc(100% - 80px);
+}
+
+
+:deep(.group-option) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

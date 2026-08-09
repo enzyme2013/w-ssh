@@ -1,12 +1,17 @@
 <template>
   <div
     class="host-card"
+    role="button"
+    tabindex="0"
+    :aria-label="`打开主机 ${session.name}`"
+    title="双击连接，右键管理"
     @dblclick="emit('connect', session)"
+    @keyup.enter="emit('connect', session)"
     @contextmenu.prevent="showContextMenu"
   >
     <div class="card-icon">
       <div class="icon-bubble">
-        <n-icon :component="DesktopOutline" :size="22" color="#6b9cf8" />
+        <n-icon :component="resolveSessionIcon(session.icon)" :size="22" color="#6b9cf8" />
       </div>
     </div>
     <div class="card-info">
@@ -31,12 +36,12 @@
 import { h, ref } from 'vue'
 import { NIcon, NDropdown, type DropdownOption } from 'naive-ui'
 import {
-  DesktopOutline,
   TerminalOutline,
   CreateOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
 import type { Session } from '../types'
+import { resolveSessionIcon } from '../utils/sessionIcons'
 
 const props = defineProps<{ session: Session }>()
 const emit = defineEmits<{
@@ -106,6 +111,11 @@ function handleSelect(key: string) {
     0 4px 16px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(107, 156, 248, 0.2),
     0 0 20px rgba(107, 156, 248, 0.08);
+}
+
+.host-card:focus-visible {
+  outline: 2px solid #93b4fb;
+  outline-offset: 2px;
 }
 
 .card-icon {

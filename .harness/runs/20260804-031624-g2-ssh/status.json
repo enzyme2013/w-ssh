@@ -1,0 +1,124 @@
+{
+  "harnessContract": "adapter",
+  "phase": "completed",
+  "createdAt": "2026-08-03T19:16:24.022Z",
+  "updatedAt": "2026-08-03T19:55:27.472Z",
+  "cwd": "D:\\project\\w-ssh",
+  "goalPath": "harness\\goals\\2026-08-04-g2-ssh.md",
+  "runDir": ".harness\\runs\\20260804-031624-g2-ssh",
+  "workMode": "local",
+  "executionRole": "implementer",
+  "communication": {
+    "commentary": "minimal",
+    "source": "configured",
+    "reportCadence": "material-transition-or-host-heartbeat",
+    "notifyOn": "blocker, risk, scope-or-authorization-change, user-decision, failed-verification, state-transition",
+    "guidance": "Use one short kickoff that combines skill, reason, scope, boundaries, and next action. Do not narrate routine UI-visible tool activity or repeat unchanged boundaries. Later commentary must add a new material fact unless it is a one-sentence host-required heartbeat."
+  },
+  "conversationRoute": "current-thread",
+  "executionContextLock": {
+    "conversationLane": "current-thread",
+    "controllerThread": "019fc89b-45ac-7c12-9cb1-373c7628632c",
+    "executionCwd": "D:\\project\\w-ssh",
+    "executionBranch": "`master` (existing branch; do not create or switch branches)",
+    "executionSlot": "N/A",
+    "remoteControlWorktree": "no"
+  },
+  "acceptanceMapRequired": true,
+  "acceptanceMapSource": "goal",
+  "acceptanceMapItemCount": 5,
+  "milestoneCompletionMapRequired": false,
+  "milestoneCompletionMapSource": "",
+  "milestoneCompletionMapItemCount": 0,
+  "milestoneCompletionMapRequiredLabels": [],
+  "stageCompletionMapRequired": false,
+  "stageCompletionMapSource": "",
+  "stageCompletionMapItemCount": 0,
+  "stageCompletionMapRequiredLabels": [],
+  "specAcceptanceChecklistSource": "goal",
+  "specAcceptanceChecklistItemCount": 4,
+  "requiredGates": [
+    "spec",
+    "execution",
+    "integration"
+  ],
+  "requiredGateEvidenceSource": "goal",
+  "requiredGateEvidenceItemCount": 3,
+  "taskSize": "medium",
+  "files": [
+    "run.md",
+    "prompt.md",
+    "subagents.md",
+    "dag.md",
+    "dag.json",
+    "agents",
+    "status.json"
+  ],
+  "logs": "logs/",
+  "executionDag": {
+    "version": 1,
+    "dag": "dag.json",
+    "agentsDir": "agents",
+    "enforcement": "required-before-run-completion",
+    "enforced": true,
+    "communication": {
+      "commentary": "minimal",
+      "source": "configured",
+      "reportCadence": "material-transition-or-host-heartbeat",
+      "notifyOn": "blocker, risk, scope-or-authorization-change, user-decision, failed-verification, state-transition",
+      "guidance": "Use one short kickoff that combines skill, reason, scope, boundaries, and next action. Do not narrate routine UI-visible tool activity or repeat unchanged boundaries. Later commentary must add a new material fact unless it is a one-sentence host-required heartbeat."
+    },
+    "launchPolicy": "runtime-dispatched",
+    "runtimeOwnership": "Codex owns scheduling, delegation, concurrency, cancellation, and model selection; Harness records dependencies, ownership, verification, and candidate evidence",
+    "parallelSafety": {
+      "requirement": "parallel writers require separate locked worktrees/cwds; otherwise concurrent nodes must be read-only or have proven non-overlapping file ownership"
+    },
+    "nodeCount": 2,
+    "parallelLayers": [
+      [
+        "execution"
+      ],
+      [
+        "verification"
+      ]
+    ],
+    "readyNodes": [],
+    "runningNodes": [],
+    "waitingNodes": [],
+    "completedNodes": [
+      "execution",
+      "verification"
+    ],
+    "blockedNodes": [],
+    "allNodesCompleted": true,
+    "nodeStatus": {
+      "execution": {
+        "phase": "completed",
+        "ownership": "accepted goal scope in the current Codex runtime; runtime Goal and Plan own transient execution",
+        "verification": "28 Rust tests passed; npm run build passed; cargo clippy --all-targets -D warnings passed; Browser QA passed at desktop and 390x844 without real Tauri/SSH/provider actions.",
+        "candidateEvidence": "agents/execution/result.md",
+        "thread": "019fc89b-45ac-7c12-9cb1-373c7628632c",
+        "surface": "current-thread / D:\\project\\w-ssh",
+        "isolationEvidence": "Single writer in locked current checkout; no branch, worktree, subagent, commit, push, real SSH, or real credential access."
+      },
+      "verification": {
+        "phase": "completed",
+        "ownership": "fresh deterministic validation, durable acceptance evidence, and residual-risk reporting",
+        "verification": "npm run build PASS; cargo test PASS 28/28; cargo clippy --all-targets -- -D warnings PASS; git diff --check PASS; Goal validate PASS; Browser desktop/390x844 PASS with no console errors. Real SSH, real providers, macOS/Linux, installer and CI remain deferred.",
+        "candidateEvidence": "agents/verification/result.md",
+        "thread": "019fc89b-45ac-7c12-9cb1-373c7628632c",
+        "surface": "current-thread / D:\\project\\w-ssh",
+        "isolationEvidence": "No external SSH/provider/private-key access and no delivery action."
+      }
+    }
+  },
+  "verificationCommands": [
+    "npm run build",
+    "cargo test --manifest-path src-tauri/Cargo.toml",
+    "cargo clippy --manifest-path src-tauri/Cargo.toml",
+    "git diff --check"
+  ],
+  "summary": "G2 completed as done / validated-local under the accepted convenience-first DR-1=A, DR-2=A, DR-3=A Spec.",
+  "verificationSummary": "npm run build PASS; cargo test PASS 28/28; cargo clippy --all-targets -- -D warnings PASS; git diff --check PASS; desktop and 390x844 Browser QA PASS; Goal validation PASS.",
+  "gateEvidence": "spec: accepted user decisions and complete Spec; execution: both enforced nodes and five acceptance stages satisfied; integration: deterministic tests, frontend build, browser QA, docs, and state sync satisfied. Real SSH/providers/macOS/Linux/installers/CI/release deferred."
+}

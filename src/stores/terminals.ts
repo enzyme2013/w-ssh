@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import type { TerminalTab } from '../types'
+import type { ConnectSecret, TerminalTab } from '../types'
 
 export const useTerminalsStore = defineStore('terminals', () => {
   const tabs = ref<TerminalTab[]>([])
@@ -12,13 +12,13 @@ export const useTerminalsStore = defineStore('terminals', () => {
     sessionName: string,
     cols: number,
     rows: number,
-    password?: string,
+    oneTimeSecret?: ConnectSecret,
   ) {
     const terminalId = await invoke<string>('ssh_connect', {
       sessionId,
       cols,
       rows,
-      password,
+      oneTimeSecret,
     })
 
     const tab: TerminalTab = {

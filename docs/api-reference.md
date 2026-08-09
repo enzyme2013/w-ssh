@@ -38,9 +38,11 @@ invoke<Session>('create_session', { data: CreateSession })
 | `host` | `string` | ✓ | Hostname or IP |
 | `port` | `number` | ✓ | SSH port (typically 22) |
 | `username` | `string` | ✓ | SSH login user |
-| `password` | `string` | — | Stored only by SQLite; ignored by YAML |
 | `private_key` | `string` | — | Absolute path to private key file |
+| `auth_method` | `password \| private_key` | ✓ | Authentication mode; must agree with `private_key` |
+| `icon` | `string` | — | Host icon key |
 | `group_name` | `string` | — | Group label for organization |
+| `group_icon` | `string` | — | Icon key inherited from the selected group |
 
 **Returns:** `Session` (with generated `id` and timestamps)
 
@@ -61,6 +63,18 @@ invoke<Session>('update_session', { data: UpdateSession })
 | `id` | `string` | ✓ | Session ID to update |
 
 **Returns:** `Session`
+
+---
+
+#### `update_group`
+
+Atomically renames a non-empty group and updates its icon across every session in the group. Renaming to an existing group is rejected.
+
+```typescript
+invoke<Session[]>('update_group', {
+  data: { current_name: 'Production', name: 'Production EU', icon: 'cloud' },
+})
+```
 
 ---
 
@@ -122,7 +136,26 @@ invoke<string[]>('get_ssh_key_paths')
 
 **Returns:** Absolute file paths, e.g. `["/home/user/.ssh/id_ed25519"]`
 
-Detected key names: `id_rsa`, `id_ed25519`, `id_ecdsa`, `id_dsa`, `id_ecdsa_sk`, `id_ed25519_sk`
+Detected key names are ordered as `id_ed25519`, `id_rsa`, `id_ecdsa`, `id_dsa`, `id_ecdsa_sk`, `id_ed25519_sk`. The UI falls back to `~/.ssh/id_ed25519` when none exist; the SSH backend expands `~/` before reading.
+
+---
+
+### Host Trust
+
+- `ssh_trust_preflight({ sessionId }) -> HostTrustResult`: probes without credentials and returns `trusted`, `unknown`, or `changed` with SHA-256 fingerprints.
+- `accept_host_trust({ challengeId })`: confirms first-use TOFU.
+- `replace_host_trust({ challengeId })`: separately replaces a changed key.
+- `get_host_trust_entries() -> HostTrustEntry[]`: lists app-owned trust entries.
+- `delete_host_trust({ endpoint }) -> boolean`: explicitly removes one trust endpoint.
+
+### Credentials And Legacy Migration
+
+- `set_session_credential({ request: { session_id, kind, secret } }) -> Session`: writes to the OS provider, reads back for verification, then records non-secret binding metadata.
+- `delete_session_credential({ sessionId, kind }) -> Session`: explicitly removes a provider entry.
+- `confirm_session_credential_rebind({ sessionId, kind }) -> Session`: verifies the provider entry and binds it to changed connection metadata.
+- `get_legacy_credential_summary() -> LegacyCredentialSummary`: returns IDs/count only, never password values.
+- `migrate_legacy_credential({ sessionId }) -> Session` and `migrate_all_legacy_credentials() -> number`: explicit verified migration.
+- `delete_legacy_credential({ sessionId }) -> boolean` and `delete_all_legacy_credentials() -> number`: explicit destructive deletion of old password values only.
 
 ---
 
@@ -137,7 +170,7 @@ invoke<string>('ssh_connect', {
   sessionId: string,
   cols: number,
   rows: number,
-  password?: string,
+  oneTimeSecret?: { kind: 'password' | 'private_key_passphrase', secret: string },
 })
 ```
 
@@ -148,13 +181,14 @@ invoke<string>('ssh_connect', {
 | `sessionId` | `string` | ID of a saved session |
 | `cols` | `number` | Initial terminal width in columns |
 | `rows` | `number` | Initial terminal height in rows |
-| `password` | `string` | Optional one-time password; not persisted |
+| `oneTimeSecret` | `ConnectSecret` | Optional password/passphrase used only after host verification |
 
 **Returns:** `terminal_id` (UUID string) — used as the key for all subsequent operations and events on this connection.
 
 **Behavior:**
 - Fetches the session from the active storage backend.
-- Uses the one-time `password` argument first, then a stored SQLite password, otherwise `private_key`.
+- Rechecks the host key before resolving any credential.
+- Uses a supplied one-time secret or a target-bound OS credential; quarantined SQLite passwords are never used automatically.
 - Requests a PTY with `xterm-256color` and the given dimensions.
 - Starts a Tokio background task; see [SSH events](#ssh-events) below.
 
@@ -242,9 +276,12 @@ interface Session {
   host: string
   port: number
   username: string
-  password?: string
   private_key?: string
+  auth_method: 'password' | 'private_key'
+  credential_state: 'none' | 'stored' | 'legacy_plaintext' | 'needs_rebind'
+  icon?: string
   group_name?: string
+  group_icon?: string
   created_at: string   // Unix epoch seconds
   updated_at: string   // Unix epoch seconds
 }
@@ -254,12 +291,20 @@ interface CreateSession {
   host: string
   port: number
   username: string
-  password?: string
   private_key?: string
+  auth_method: 'password' | 'private_key'
+  icon?: string
   group_name?: string
+  group_icon?: string
 }
 
 type UpdateSession = CreateSession & { id: string }
+
+interface UpdateGroup {
+  current_name: string
+  name: string
+  icon?: string
+}
 
 type StorageBackend = 'sqlite' | 'yaml'
 

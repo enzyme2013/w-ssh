@@ -1,0 +1,16 @@
+{
+  "node": "execution",
+  "label": "Runtime Execution",
+  "phase": "completed",
+  "createdAt": "2026-08-03T19:16:24.022Z",
+  "updatedAt": "2026-08-03T19:53:07.567Z",
+  "dependencies": [],
+  "mode": "implementer",
+  "prompt": "agents/execution/prompt.md",
+  "result": "agents/execution/result.md",
+  "summary": "Implemented all five accepted G2 stages: app-owned TOFU trust, OS credential provider boundary, recoverable explicit legacy migration, SSH/UI integration, and docs.",
+  "verificationSummary": "28 Rust tests passed; npm run build passed; cargo clippy --all-targets -D warnings passed; Browser QA passed at desktop and 390x844 without real Tauri/SSH/provider actions.",
+  "thread": "019fc89b-45ac-7c12-9cb1-373c7628632c",
+  "surface": "current-thread / D:\\project\\w-ssh",
+  "isolationEvidence": "Single writer in locked current checkout; no branch, worktree, subagent, commit, push, real SSH, or real credential access."
+}

@@ -7,36 +7,36 @@ records.
 
 ## Focus
 
-- Current focus: G1 已完成并达到 `validated-local`；等待用户选择下一 Goal。
+- Current focus: G2 SSH 主机信任与凭据安全加固已完成本地验收；下一入口为 G3。
 
 ## State
 
 - Current phase: `done / validated-local`
-- Authoritative Task/Goal: `harness/goals/2026-08-03-g1-sqlite-yaml.md`
-- Projection updated: 2026-08-03
+- Authoritative Spec: `harness/specs/G2-ssh-trust-credentials.md`
+- Completed Goal: `harness/goals/2026-08-04-g2-ssh.md`
+- Completed Run: `.harness/runs/20260804-031624-g2-ssh`
+- Projection updated: 2026-08-04
 
 ## Verification
 
-- Last checked: 2026-08-03
-- Last command: `npm run build`、`cargo test --manifest-path src-tauri/Cargo.toml`、Harness `goal validate` 和 `run record`
-- Result: 前端生产构建通过；Rust 15 项测试通过、0 失败；Goal 无错误/警告；正式 Run 四节点和 spec/execution/integration gates 全部 completed。
+- `npm run build`: passed; existing large-chunk warning only.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed, 28 tests.
+- `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`: passed.
+- `git diff --check`: passed; line-ending conversion notices only.
+- Browser QA: desktop and 390x844 first viewport/form interactions passed with no console errors; browser-only Tauri bridge absence was treated as an expected static-shell boundary.
+- Harness Goal validation and enforced `execution -> verification` nodes: passed.
 
 ## Evidence
 
-- Accepted evidence: Gate 0/spec gate satisfied；SQLite 默认路径不变；严格 YAML schema/原子写/恢复副本、一次性密码、显式双向复制并校验、非空目标拒绝、损坏文件不静默回退及设置提交失败回退均有本地测试。README/CLAUDE/docs 与 npm/Cargo/Tauri 版本已同步为 0.2.0。
-- Candidate evidence: Browser 在 1280x800 和 390x844 验证设置入口、弹窗、失败禁用态和无横向溢出；console 无 error/warning。
-- Deferred evidence: 未做真实 SSH 连接、跨平台安装包、GitHub Actions 实际运行或发布验证；普通 clippy 仍报告既有 `ssh::connect` 参数过多警告。
+- Accepted: DR-1/2/3 and complete Spec; app-owned TOFU trust, changed-key fail closed/replace, strict normalized known_hosts with locked atomic writes, keyring provider abstraction, secret-free Session/IPC/storage, target rebind, passphrase, and explicit recoverable legacy migration.
+- Test isolation: only temporary known_hosts/SQLite/YAML fixtures and an in-memory credential provider; no external SSH, real credential store, real secret, or private-key file was used.
+- Delivery: no branch/worktree/commit/push/deploy/release was created or performed; existing untracked Harness control assets remain preserved.
 
-## Route Notes
+## Deferred
 
-- Current route: `durable-harness / completed`；当前控制任务已完成 accepted-state 同步。
-- Why: 用户接受的 Gate 0 与四个依赖批次已按 required DAG 串行完成并验证。
-- Confirmation needed: 无；普通实现细节由当前控制任务按已接受安全边界判断。
-- Idea Inbox candidates: 可选 YAML 文本配置后端已提升为 G1。
-- Optional competition status: 不启用；用户已于 2026-08-03 确认从 JSON 改为 YAML。
-- Completed Run: `.harness/runs/20260803-163238-g1-sqlite-yaml`；控制任务单写者，四批严格串行。
-- Delivery: 用户在 G1 完成后明确授权“分批commit”；本地按 Rust、前端、文档、Harness 状态分批提交，未 push。
+- Real Windows credential-store operation, macOS Keychain, Linux Secret Service, real SSH servers/keys, installers, CI, and release remain unverified.
+- These boundaries do not reduce the accepted `validated-local` result and must not be represented as cross-platform or production evidence.
 
 ## Blockers
 
-- 无。
+- None for G2 local completion.
